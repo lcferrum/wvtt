@@ -27,16 +27,16 @@ int main(int argc, char* argv[])
 	DWORD test3=VER_SUITE_SMALLBUSINESS|VER_SUITE_BACKOFFICE|0x100000;
 	DWORD test4=777;
 	
-	std::cout<<"TEST3:\n"<<SuiteMasks.Flags(test3, [](const std::string& label, DWORD value, bool unknown, bool first){
-		if (unknown)
-			return std::string("\tUNKNOWN FLAG (")+std::to_string(value)+")\n";
-		else
-			return std::string("\t")+label+"\n";
-	});
-	
 	std::cout<<"TEST2: "<<SuiteMasks.Flags(test2)<<std::endl;
 	std::cout<<"TEST1: "<<SuiteMasks(test1)<<std::endl;
 	std::cout<<"ALL: "<<SuiteMasks.Values()<<std::endl;
+	SuiteMasks.Flags(test3, [](const std::string& label, DWORD value, bool unknown, size_t idx){
+		if (unknown)
+			std::cout<<"\tUNKNOWN FLAG ("<<COUT_HEX(value, 4)<<")"<<std::endl;
+		else
+			std::cout<<"\t"<<label<<std::endl;
+		return false;
+	});
 	std::cout<<"Find VER_SUITE_COMMUNICATIONS: "<<COUT_HEX(SuiteMasks.Find("VER_SUITE_COMMUNICATIONS", 0x0), 8)<<std::endl;
 	
 	std::cout<<"Press ENTER to continue..."<<std::flush;

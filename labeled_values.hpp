@@ -22,18 +22,6 @@ class BasicLabeledValues {
 #endif
 private:
 	std::vector<std::pair<TSTRING, ValT>> ValList;
-	TSTRING ShowMany(const TSTRING& label, DWORD value, bool unknown, bool first) {
-		if (!unknown)
-			return (first?TSTRING():TSTRING(TEXT(", ")))+label;
-		else
-			return TSTRING();
-	}
-	TSTRING ShowSingle(const TSTRING& label, DWORD value, bool unknown, bool first) {
-		if (!unknown&&first)
-			return label;
-		else
-			return TSTRING();
-	}
 public:
 	BasicLabeledValues(bool unique_vals, const TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList() {
 		TSTRINGSTREAM vals_ss(vals_str);
@@ -57,91 +45,64 @@ public:
 	size_t Size() {
 		return ValList.size();
 	}
-	size_t Values(std::function<void(const TSTRING&, ValT)> enum_function) {
-		for (std::pair<TSTRING, ValT> &val_pair: ValList)
-			enum_function(val_pair.first, val_pair.second);
-		return ValList.size();
-	}
-	TSTRING Values(std::function<TSTRING(const TSTRING&, ValT, bool)> enum_function) {
-		TSTRING result;
-		bool first_val=true;
-		for (std::pair<TSTRING, ValT> &val_pair: ValList) {
-			result+=enum_function(val_pair.first, val_pair.second, first_val);
-			first_val=false;
-		}
-		return result;
-	}
-	TSTRING Values() {
-		return Values(std::bind(&BasicLabeledValues::ShowMany, this, std::placeholders::_1, std::placeholders::_2, false, std::placeholders::_3));
-	}
-	size_t Enums(ValT enums, std::function<void(const TSTRING&, ValT, bool)> enum_function) {
+	size_t Values(std::function<bool(const TSTRING&, ValT, size_t)> enum_function) {
 		size_t count=0;
-		for (std::pair<TSTRING, ValT> &val_pair: ValList) {
-			if (enums==val_pair.second) {
-				count++;
-				enum_function(val_pair.first, val_pair.second, false);
-			}
-		}
-		if (!count)
-			enum_function(TEXT(""), enums, true);
+		for (std::pair<TSTRING, ValT> &val_pair: ValList)
+			if (enum_function(val_pair.first, val_pair.second, count++)) break;
 		return count;
 	}
-	TSTRING Enums(ValT enums, std::function<TSTRING(const TSTRING&, ValT, bool, bool)> enum_function) {
+	TSTRING Values() {
 		TSTRING result;
-		bool first_val=true;
-		bool found=false;
-		for (std::pair<TSTRING, ValT> &val_pair: ValList) {
-			if (enums==val_pair.second) {
-				found=true;
-				result+=enum_function(val_pair.first, val_pair.second, false, first_val);
-				first_val=false;
-			}
-		}
-		if (!found)
-			result+=enum_function(TEXT(""), enums, true, first_val);
+		Values([&result](const std::string& label, DWORD value, size_t idx){
+			result+=(idx?TSTRING(TEXT(", ")):TSTRING())+label;
+			return false;
+		});
 		return result;
 	}
+	size_t Enums(ValT enums, std::function<bool(const TSTRING&, ValT, bool, size_t)> enum_function) {
+		size_t count=0;
+		for (std::pair<TSTRING, ValT> &val_pair: ValList)
+			if (enums==val_pair.second&&enum_function(val_pair.first, val_pair.second, false, count++)) return count;
+		if (!count)
+			enum_function(TEXT(""), enums, true, 0);
+		return count;
+	}
 	TSTRING Enums(ValT enums) {
-		return Enums(enums, std::bind(&BasicLabeledValues::ShowSingle, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+		TSTRING result;
+		Enums(enums, [&result](const std::string& label, DWORD value, bool unknown, size_t idx){
+			if (!unknown) {
+				result=label;
+				return true;
+			} else
+				return false;
+		});
+		return result;
 	}
 	TSTRING operator()(ValT value) {
 		return Enums(value);
 	}
-	size_t Flags(ValT flags, std::function<void(const TSTRING&, ValT, bool)> enum_function) {
+	size_t Flags(ValT flags, std::function<bool(const TSTRING&, ValT, bool, size_t)> enum_function) {
 		ValT checked_flags=0;
 		size_t count=0;
-		for (std::pair<TSTRING, ValT> &val_pair: ValList) {
+		for (std::pair<TSTRING, ValT> &val_pair: ValList)
 			if ((flags&val_pair.second)==val_pair.second) {
 				checked_flags|=val_pair.second;
-				count++;
-				enum_function(val_pair.first, val_pair.second, false);
+				if (enum_function(val_pair.first, val_pair.second, false, count++)) return count;
 			}
-		}
 		if (checked_flags!=flags) {
 			flags&=~checked_flags;
-			enum_function(TEXT(""), flags, true);
+			enum_function(TEXT(""), flags, true, count);
 		}
 		return count;
 	}
-	TSTRING Flags(ValT flags, std::function<TSTRING(const TSTRING&, ValT, bool, bool)> enum_function) {
-		TSTRING result;
-		bool first_val=true;
-		ValT checked_flags=0;
-		for (std::pair<TSTRING, ValT> &val_pair: ValList) {
-			if ((flags&val_pair.second)==val_pair.second) {
-				checked_flags|=val_pair.second;
-				result+=enum_function(val_pair.first, val_pair.second, false, first_val);
-				first_val=false;
-			}
-		}
-		if (checked_flags!=flags) {
-			flags&=~checked_flags;
-			result+=enum_function(TEXT(""), flags, true, first_val);
-		}
-		return result;
-	}
 	TSTRING Flags(ValT flags) {
-		return Flags(flags, std::bind(&BasicLabeledValues::ShowMany, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+		TSTRING result;
+		Flags(flags, [&result](const std::string& label, DWORD value, bool unknown, size_t idx){
+			if (!unknown)
+				result+=(idx?TSTRING(TEXT(", ")):TSTRING())+label;
+			return false;
+		});
+		return result;
 	}
 };
 typedef BasicLabeledValues<DWORD> LabeledValues;
