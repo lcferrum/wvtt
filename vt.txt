@@ -1,0 +1,6 @@
+1.0 -> 3.11 -> NT 3.1 -> NT 3.51 -> 95 -> NT 4.0 -> 98 -> ME -> 2000 -> XP -> Vista -> 8 -> 8.1 -> 10
+                                    9x                                  XP    Aero     Metro       Aero	
+
+1.0 -> 3.11                                                                                           -  16-bit family
+               NT 3.1 ->       ->          ->          ->            ->           ->        ->     10 -  NT-family
+                                    95    ->     ->       ME                                          -  9x-family
