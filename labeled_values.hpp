@@ -7,18 +7,26 @@
 #include <algorithm>
 #include <functional>
 #include <initializer_list>
+
+#ifdef _WIN32
 #include <windows.h>	//TCHAR, TEXT and DWORD
+#else
+#define TEXT(c) c		//On non-Windows targets assume that SBCS/MBCS character set is in use
+#endif
 
 #define LABELED_VALUES_ARG(...)			false, TEXT(#__VA_ARGS__), {__VA_ARGS__}
 #define UNIQUE_LABELED_VALUES_ARG(...)	true, TEXT(#__VA_ARGS__), {__VA_ARGS__}
 template <typename ValT>
 class BasicLabeledValues {
-#ifdef UNICODE
+#if defined(UNICODE) && defined(_WIN32)
 	typedef std::wstring TSTRING;
 	typedef std::wstringstream TSTRINGSTREAM;
 #else
 	typedef std::string TSTRING;
 	typedef std::stringstream TSTRINGSTREAM;
+#endif
+#ifndef _WIN32
+	typedef char TCHAR;
 #endif
 private:
 	std::vector<std::pair<TSTRING, ValT>> ValList;
@@ -32,10 +40,14 @@ public:
 			ValList.push_back(std::make_pair(value, *vals_it));
 			vals_it++;
 		}
-		if (unique_vals)
+		if (unique_vals) {
+			std::sort(ValList.begin(), ValList.end(), [](const std::pair<TSTRING, ValT> &L, const std::pair<TSTRING, ValT> &R){
+				return L.second<R.second;
+			});
 			ValList.erase(std::unique(ValList.begin(), ValList.end(), [](const std::pair<TSTRING, ValT> &L, const std::pair<TSTRING, ValT> &R){
 				return L.second==R.second;
 			}), ValList.end());
+		}
 	}
 	ValT Find(const TSTRING& label, ValT def_val) {
 		for (std::pair<TSTRING, ValT> &val_pair: ValList)
@@ -53,7 +65,7 @@ public:
 	}
 	TSTRING Values() {
 		TSTRING result;
-		Values([&result](const std::string& label, DWORD value, size_t idx){
+		Values([&result](const TSTRING& label, ValT value, size_t idx){
 			result+=(idx?TSTRING(TEXT(", ")):TSTRING())+label;
 			return false;
 		});
@@ -69,7 +81,16 @@ public:
 	}
 	TSTRING Enums(ValT enums) {
 		TSTRING result;
-		Enums(enums, [&result](const std::string& label, DWORD value, bool unknown, size_t idx){
+		Enums(enums, [&result](const TSTRING& label, ValT value, bool unknown, size_t idx){
+			if (!unknown)
+				result+=(idx?TSTRING(TEXT(", ")):TSTRING())+label;
+			return false;
+		});
+		return result;
+	}
+	TSTRING operator()(ValT value) {
+		TSTRING result;
+		Enums(value, [&result](const TSTRING& label, ValT value, bool unknown, size_t idx){
 			if (!unknown) {
 				result=label;
 				return true;
@@ -77,9 +98,6 @@ public:
 				return false;
 		});
 		return result;
-	}
-	TSTRING operator()(ValT value) {
-		return Enums(value);
 	}
 	size_t Flags(ValT flags, std::function<bool(const TSTRING&, ValT, bool, size_t)> enum_function) {
 		ValT checked_flags=0;
@@ -97,7 +115,7 @@ public:
 	}
 	TSTRING Flags(ValT flags) {
 		TSTRING result;
-		Flags(flags, [&result](const std::string& label, DWORD value, bool unknown, size_t idx){
+		Flags(flags, [&result](const TSTRING& label, ValT value, bool unknown, size_t idx){
 			if (!unknown)
 				result+=(idx?TSTRING(TEXT(", ")):TSTRING())+label;
 			return false;
@@ -105,6 +123,11 @@ public:
 		return result;
 	}
 };
+#ifdef _WIN32
 typedef BasicLabeledValues<DWORD> LabeledValues;
+#else
+#undef TEXT
+typedef BasicLabeledValues<unsigned long> LabeledValues;
+#endif
 
 #endif //LABELED_VALUES_HPP
