@@ -174,6 +174,7 @@ int main(int argc, char* argv[])
 	PrintFileVersion("USER.EXE");
 	PrintFileVersion("KERNEL32.DLL");
 	PrintFileVersion("NTKERN.VXD");
+	PrintFileVersion("DOOM.EXE");
 	
 	std::cout<<std::endl;
     
@@ -274,9 +275,19 @@ bool PrintRegistryKey(HKEY hive, const char* keypath, const char* value) {
 }
 
 bool PrintFileVersion(const char* fpath) {
+	//Some Windows system files bear information that can help in detecting Windows version
+	//Most of these files are PE DLLs but some are also LE VXDs
+	//Microsoft vaguely suggests checking VS_FIXEDFILEINFO.FILEVERSION of VERSIONINFO resource and "date" of system files to help detect OS version
+	//In reality it's better to check StringFileInfo.ProductVersion of VERSIONINFO resource and file's modified date/time
+	//ProductVersion holds version info more related to OS version than FILEVERSION that holds actual file version (TODO: example for Win ME and NT)
+	//PE files have TimeDateStamp field in the header that contains actual build date
+	//But binary can be shipped modified by Microsoft and on Win 9x HH:MM:SS portion of modified date actually contains build number instead of real modified time
+	//LE files have ModuleVersion field in the headder but it's not used in any of system VXDs
+	//"File not found" is a result - absence/presence of specific files also helps in detecting OS version (ex: USB supplement)
+	
 	DWORD buflen;
-	char mddate[11]="?";
-	char crdate[11]="?";
+	char mddate[20]="?";
+	char crdate[20]="?";
 	
 	if ((buflen=SearchPath(NULL, fpath, NULL, 0, NULL, NULL))) {
 		char fullpth[buflen];
@@ -284,17 +295,24 @@ bool PrintFileVersion(const char* fpath) {
 			HANDLE hFile=CreateFile(fullpth, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			if (hFile!=INVALID_HANDLE_VALUE) {
 				FILETIME ft;
-				SYSTEMTIME st_utc;
+				SYSTEMTIME st_utc, st_local;
 				if (GetFileTime(hFile, NULL, NULL, &ft)&&FileTimeToSystemTime(&ft, &st_utc))
-					sprintf(mddate, "%02d/%02d/%04d", st_utc.wDay, st_utc.wMonth, st_utc.wYear);
+					//FileTime is wrong in HH:MM:SS test should show 12:12:00 - something wrong with timezone
+					sprintf(mddate, "%02d/%02d/%04d %02d:%02d:%02d", st_utc.wDay, st_utc.wMonth, st_utc.wYear, st_utc.wHour, st_utc.wMinute, st_utc.wSecond);
 				
 				if (HANDLE hFileMapping=CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL)) {
 					if (LPVOID lpFileBase=MapViewOfFile(hFileMapping, FILE_MAP_READ, 0, 0, 0)) {
 						IMAGE_DOS_HEADER *p_dos_hdr=(IMAGE_DOS_HEADER*)lpFileBase;
 						
-						if (p_dos_hdr->e_magic==IMAGE_DOS_SIGNATURE) {
+						if (p_dos_hdr->e_magic==IMAGE_DOS_SIGNATURE&&p_dos_hdr->e_lferlc>=0x40) {
+							//IMAGE_DOS_HEADER.e_lferlc is relocation table offset
+							//Offset of 0x40 and more generally indicates that it is offset to "This program cannot be run in DOS mode." stub and executable is actually of "new" type
+							//For "old" type executables IMAGE_DOS_HEADER.e_lfanew member (which is at offset 0x3C) could be well within relocation table itself which results in wild offset to nowhere
 							IMAGE_NT_HEADERS *p_nt_hdr=(IMAGE_NT_HEADERS*)((ULONG_PTR)lpFileBase+p_dos_hdr->e_lfanew);
 							if (p_nt_hdr->Signature==IMAGE_NT_SIGNATURE) {
+								//IMAGE_NT_SIGNATURE is PE signature
+								//Besides PE on Windows it also can be NE (Win 16 executable) and LE (VXD)
+								//NE doesn't contain any version or time information while LE contains Module Version field but on observed ystem VXDs it is always 0
 								//Algorithm to convert UNIX time (time_t) to FILETIME taken from here: https://support.microsoft.com/en-us/kb/167296
 								//Even though FILETIME and LONGLONG returned by Int32x32To64 are both 64-bit numbers, MS suggests no to perform 64-bit arithmetics directly on FILETIME
 								//Instead it suggests using intermediate union LARGE_INTEGER to transfer 64-bit arithmetic result to FILETIME
@@ -303,7 +321,7 @@ bool PrintFileVersion(const char* fpath) {
 								ft.dwLowDateTime=nix_to_w32.LowPart;
 								ft.dwHighDateTime=nix_to_w32.HighPart;
 								if (FileTimeToSystemTime(&ft, &st_utc))
-									sprintf(crdate, "%02d/%02d/%04d", st_utc.wDay, st_utc.wMonth, st_utc.wYear);
+									sprintf(crdate, "%02d/%02d/%04d %02d:%02d:%02d", st_utc.wDay, st_utc.wMonth, st_utc.wYear, st_utc.wHour, st_utc.wMinute, st_utc.wSecond);
 							}
 						}
 						
@@ -314,18 +332,21 @@ bool PrintFileVersion(const char* fpath) {
 				
 				CloseHandle(hFile); 
 			}
-
+			
+			printf("%s:\n\tGetFileTime.lpLastWriteTime = %s\n\tIMAGE_FILE_HEADER.TimeDateStamp = %s\n", fpath, mddate, crdate);
+			
 			if ((buflen=GetFileVersionInfoSize(fullpth, NULL))) {
 				BYTE retbuf[buflen];
 				if (GetFileVersionInfo(fullpth, 0, buflen, (LPVOID)retbuf)) {
 					VS_FIXEDFILEINFO *pfinfo;
 					UINT finfolen;
 					if (VerQueryValue((LPVOID)retbuf, "\\", (LPVOID*)&pfinfo, &finfolen)) {
-						printf("%s:\n\tGetFileTime.lpLastWriteTime = %s\n\tIMAGE_FILE_HEADER.TimeDateStamp = %s\n\tVS_FIXEDFILEINFO.FileVersion = %d.%d.%d.%d\n", fpath, mddate, crdate, HIWORD(pfinfo->dwFileVersionMS), LOWORD(pfinfo->dwFileVersionMS), HIWORD(pfinfo->dwFileVersionLS), LOWORD(pfinfo->dwFileVersionLS));
-						return true;
+						printf("\tVS_FIXEDFILEINFO.FileVersion = %d.%d.%d.%d\n", HIWORD(pfinfo->dwFileVersionMS), LOWORD(pfinfo->dwFileVersionMS), HIWORD(pfinfo->dwFileVersionLS), LOWORD(pfinfo->dwFileVersionLS));
 					}
 				}
 			}
+			
+			return true;
 		}
 	}		
 	
