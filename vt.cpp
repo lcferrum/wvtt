@@ -1,10 +1,6 @@
 #include <iostream>
 #include <iomanip>
 #include <limits>
-#include <cstddef>
-#include <stdio.h>
-#include <conio.h>
-#include <stdlib.h>
 #include <ntdef.h>
 #include <windows.h>
 #include "externs.h"
@@ -236,9 +232,9 @@ bool PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 	bool success=false;
 	
 	if (RegOpenKeyEx(hive, keypath, 0, KEY_READ, &reg_key)==ERROR_SUCCESS) {
-		if (RegQueryValueEx(reg_key, value, NULL, &key_type, NULL, &buflen)==ERROR_SUCCESS&&key_type==REG_SZ) {
+		if (RegQueryValueEx(reg_key, value, NULL, &key_type, NULL, &buflen)==ERROR_SUCCESS&&(key_type==REG_SZ||key_type==REG_EXPAND_SZ)) {
 			char retbuf[buflen];
-			if (RegQueryValueEx(reg_key, value, NULL, &key_type, (LPBYTE)retbuf, &buflen)==ERROR_SUCCESS&&key_type==REG_SZ&&retbuf[buflen-1]=='\0') {
+			if (RegQueryValueEx(reg_key, value, NULL, &key_type, (LPBYTE)retbuf, &buflen)==ERROR_SUCCESS&&(key_type==REG_SZ||key_type==REG_EXPAND_SZ)&&retbuf[buflen-1]=='\0') {
 				std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<":\n\t\""<<retbuf<<"\""<<std::endl;
 				success=true;
 			}
@@ -270,7 +266,7 @@ bool PrintFileInformation(const char* fpath)
 		if (SearchPath(NULL, fpath, NULL, buflen, fullpth, NULL)) {
 			bool got_info=false;
 			
-			std::cout<<fpath<<":"<<std::endl;
+			std::cout<<fpath<<" ("<<fullpth<<"):"<<std::endl;
 			
 			HANDLE hFile=CreateFile(fullpth, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			if (hFile!=INVALID_HANDLE_VALUE) {
@@ -287,7 +283,9 @@ bool PrintFileInformation(const char* fpath)
 			
 			if ((buflen=GetFileVersionInfoSize(fullpth, NULL))) {	
 				BYTE retbuf[buflen];
-				if (GetFileVersionInfo(fullpth, 0, buflen, (LPVOID)retbuf)) {
+				if (GetFileVersionInfo(fullpth, 0, buflen, (LPVOID)retbuf)) {	
+					//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use VERSIONINFO from this file instead of original one
+					//So information can differ between what Explorer show (actual file VERSIONINFO) and what GetFileVersionInfo retreives
 					LANGANDCODEPAGE *plcp;
 					UINT lcplen;
 					if (VerQueryValue((LPVOID)retbuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &lcplen)&&lcplen>=sizeof(LANGANDCODEPAGE)) {
