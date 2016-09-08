@@ -8,6 +8,7 @@
 *.so
 *.dylib
 *.dll
+*.vxd
 
 # Fortran module files
 *.mod
