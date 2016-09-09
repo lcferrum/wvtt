@@ -4,12 +4,19 @@ pRtlGetVersion fnRtlGetVersion=NULL;
 pGetNativeSystemInfo fnGetNativeSystemInfo=NULL;
 pIsWow64Process fnIsWow64Process=NULL;
 pGetProductInfo fnGetProductInfo=NULL;
+pWow64DisableWow64FsRedirection fnWow64DisableWow64FsRedirection=NULL;
+pWow64RevertWow64FsRedirection fnWow64RevertWow64FsRedirection=NULL;
+pGetMappedFileName fnGetMappedFileName=NULL;
+pNtCreateFile fnNtCreateFile=NULL;
+pNtQueryObject fnNtQueryObject=NULL;
+pGetSystemWow64DirectoryW fnGetSystemWow64DirectoryW=NULL;
+pSetSearchPathMode fnSetSearchPathMode=NULL;
 pwine_get_version fnwine_get_version=NULL;
 
 std::unique_ptr<Externs> Externs::instance;
 
 Externs::Externs(): 
-	hNtDll(NULL), hKernel32(NULL)
+	hNtDll(NULL), hKernel32(NULL), hPsapi(NULL)
 {
 	LoadFunctions();
 }
@@ -33,16 +40,27 @@ void Externs::LoadFunctions()
 {
 	hNtDll=LoadLibrary("ntdll.dll");
 	hKernel32=LoadLibrary("kernel32.dll");
+	hPsapi=LoadLibrary("psapi.dll");
 	
 	if (hNtDll) {
 		fnRtlGetVersion=(pRtlGetVersion)GetProcAddress(hNtDll, "RtlGetVersion");
+		fnNtCreateFile=(pNtCreateFile)GetProcAddress(hNtDll, "NtCreateFile");
+		fnNtQueryObject=(pNtQueryObject)GetProcAddress(hNtDll, "NtQueryObject");
 		fnwine_get_version=(pwine_get_version)GetProcAddress(hNtDll, "wine_get_version");
 	}
 	
 	if (hKernel32) {
+		fnSetSearchPathMode=(pSetSearchPathMode)GetProcAddress(hKernel32, "SetSearchPathMode");
 		fnIsWow64Process=(pIsWow64Process)GetProcAddress(hKernel32, "IsWow64Process");
+		fnGetSystemWow64DirectoryW=(pGetSystemWow64DirectoryW)GetProcAddress(hKernel32, "GetSystemWow64DirectoryW");
 		fnGetNativeSystemInfo=(pGetNativeSystemInfo)GetProcAddress(hKernel32, "GetNativeSystemInfo");
 		fnGetProductInfo=(pGetProductInfo)GetProcAddress(hKernel32, "GetProductInfo");
+		fnWow64DisableWow64FsRedirection=(pWow64DisableWow64FsRedirection)GetProcAddress(hKernel32, "Wow64DisableWow64FsRedirection");
+		fnWow64RevertWow64FsRedirection=(pWow64RevertWow64FsRedirection)GetProcAddress(hKernel32, "Wow64RevertWow64FsRedirection");
+	}
+	
+	if (hPsapi) {
+		fnGetMappedFileName=(pGetMappedFileName)GetProcAddress(hPsapi, "GetMappedFileNameA");
 	}
 }
 
@@ -51,4 +69,5 @@ void Externs::UnloadFunctions()
 {
 	if (hNtDll) FreeLibrary(hNtDll);
 	if (hKernel32) FreeLibrary(hKernel32);
+	if (hPsapi) FreeLibrary(hPsapi);
 }

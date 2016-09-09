@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <limits>
+#include <string>
 #include <ntdef.h>
 #include <windows.h>
 #include "externs.h"
@@ -10,6 +11,13 @@ extern pRtlGetVersion fnRtlGetVersion;
 extern pGetNativeSystemInfo fnGetNativeSystemInfo;
 extern pIsWow64Process fnIsWow64Process;
 extern pGetProductInfo fnGetProductInfo;
+extern pWow64DisableWow64FsRedirection fnWow64DisableWow64FsRedirection;
+extern pWow64RevertWow64FsRedirection fnWow64RevertWow64FsRedirection;
+extern pGetMappedFileName fnGetMappedFileName;
+extern pNtCreateFile fnNtCreateFile;
+extern pNtQueryObject fnNtQueryObject;
+extern pGetSystemWow64DirectoryW fnGetSystemWow64DirectoryW;
+extern pSetSearchPathMode fnSetSearchPathMode;
 extern pwine_get_version fnwine_get_version;
 
 typedef struct _LANGANDCODEPAGE {
@@ -37,8 +45,8 @@ LabeledValues ProcessorArchitectures(LABELED_VALUES_ARG(PROCESSOR_ARCHITECTURE_I
 LabeledValues ProductInfoTypes(LABELED_VALUES_ARG(PRODUCT_UNDEFINED, PRODUCT_ULTIMATE, PRODUCT_HOME_BASIC, PRODUCT_HOME_PREMIUM, PRODUCT_ENTERPRISE, PRODUCT_HOME_BASIC_N, PRODUCT_BUSINESS, PRODUCT_STANDARD_SERVER, PRODUCT_DATACENTER_SERVER, PRODUCT_SMALLBUSINESS_SERVER, PRODUCT_ENTERPRISE_SERVER, PRODUCT_STARTER, PRODUCT_DATACENTER_SERVER_CORE, PRODUCT_STANDARD_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_IA64, PRODUCT_BUSINESS_N, PRODUCT_WEB_SERVER, PRODUCT_CLUSTER_SERVER, PRODUCT_HOME_SERVER, PRODUCT_STORAGE_EXPRESS_SERVER, PRODUCT_STORAGE_STANDARD_SERVER, PRODUCT_STORAGE_WORKGROUP_SERVER, PRODUCT_STORAGE_ENTERPRISE_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM, PRODUCT_UNLICENSED, PRODUCT_HOME_PREMIUM_N, PRODUCT_ENTERPRISE_N, PRODUCT_ULTIMATE_N, PRODUCT_WEB_SERVER_CORE, PRODUCT_MEDIUMBUSINESS_SERVER_MANAGEMENT, PRODUCT_MEDIUMBUSINESS_SERVER_SECURITY, PRODUCT_MEDIUMBUSINESS_SERVER_MESSAGING, PRODUCT_SERVER_FOUNDATION, PRODUCT_HOME_PREMIUM_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS_V, PRODUCT_STANDARD_SERVER_V, PRODUCT_DATACENTER_SERVER_V, PRODUCT_ENTERPRISE_SERVER_V, PRODUCT_DATACENTER_SERVER_CORE_V, PRODUCT_STANDARD_SERVER_CORE_V, PRODUCT_ENTERPRISE_SERVER_CORE_V, PRODUCT_HYPERV, PRODUCT_STORAGE_EXPRESS_SERVER_CORE, PRODUCT_STORAGE_STANDARD_SERVER_CORE, PRODUCT_STORAGE_WORKGROUP_SERVER_CORE, PRODUCT_STORAGE_ENTERPRISE_SERVER_CORE, PRODUCT_STARTER_N, PRODUCT_PROFESSIONAL, PRODUCT_PROFESSIONAL_N, PRODUCT_SB_SOLUTION_SERVER, PRODUCT_SERVER_FOR_SB_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS_CORE, PRODUCT_SB_SOLUTION_SERVER_EM, PRODUCT_SERVER_FOR_SB_SOLUTIONS_EM, PRODUCT_SOLUTION_EMBEDDEDSERVER, PRODUCT_SOLUTION_EMBEDDEDSERVER_CORE, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM_CORE, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMT, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDL, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMTSVC, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDLSVC, PRODUCT_CLUSTER_SERVER_V, PRODUCT_EMBEDDED, PRODUCT_STARTER_E, PRODUCT_HOME_BASIC_E, PRODUCT_HOME_PREMIUM_E, PRODUCT_PROFESSIONAL_E, PRODUCT_ENTERPRISE_E, PRODUCT_ULTIMATE_E));
 BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
 
-bool PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
-bool PrintFileInformation(const char* fpath);
+void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
+void PrintFileInformation(const char* fpath);
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
 
 int main(int argc, char* argv[])
@@ -53,8 +61,12 @@ int main(int argc, char* argv[])
 	//N.B.: Uppercase also makes base to be displayed in uppercase (that's why showing base is disabled) but doesn't affect boolalpha flag (bool values still displayed in lowercase)
 	//Applied for all subsequent cout outputs 
 	std::cout.unsetf(std::ios::showbase);
-	std::cout.setf(std::ios::uppercase);   
-	
+	std::cout.setf(std::ios::uppercase); 
+
+	//Disable Windows error dialog popup for failed LoadLibrary attempts
+	//This is done so PrintFileInformation can search for needed files using LoadLibrary
+	SetErrorMode(SEM_FAILCRITICALERRORS);	
+
 	OSVERSIONINFOEX osvi_ex;
 	if (GetVersionWrapper(osvi_ex)) {
 		std::cout<<"\tdwMajorVersion = "<<COUT_DEC(osvi_ex.dwMajorVersion)<<std::endl;
@@ -184,6 +196,7 @@ int main(int argc, char* argv[])
     
 	std::cout<<"Press ENTER to continue..."<<std::flush;
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');	//Needs defined NOMINMAX
+	
 	return 0;
 }
 
@@ -224,7 +237,7 @@ bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex)
 		return false;
 }
 
-bool PrintRegistryKey(HKEY hive, const char* keypath, const char* value) 
+void PrintRegistryKey(HKEY hive, const char* keypath, const char* value) 
 {
 	HKEY reg_key;
 	DWORD buflen;
@@ -244,11 +257,170 @@ bool PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 	
 	if (!success) 
 		std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<" - error while opening!"<<std::endl;
-
-	return success;
 }
 
-bool PrintFileInformation(const char* fpath) 
+std::string UnredirectWow64FsPath(const char* query_path)
+{
+#ifdef _WIN64
+	//Useless for 64-bit binary - no redirection is done for it
+	return query_path;
+#else
+	//How does it work
+	//We are supplying original path (prefixed with \??\ so to make NT path from it) to NtCreateFile
+	//WoW64 redirection expands to NtCreateFile for \??\ paths so when NtCreateFile opens this file - it opens the right (intended) one
+	//Now we use NtQueryObject to get canonical NT path (\Device\...) from opened handle
+	//These paths are not affected by WoW64 redirection so returned path is the real one
+	//After that we get WoW64 directory (with GetSystemWow64Directory) and convert it to NT path the same way as original path
+	//Find out if original path has something to do with WoW64 redirection by checing if it is prefixed by WoW64 directory
+	//If not - just return original path because it is not actually redirected
+	//Now all is left is to convert original path in it's NT canonical form back to it's Win32 equivalent
+	//In this case it is simple because we already know Win32 equivalent of it's device prefix which is WoW64 directory
+	//Just swap this prefix with it's Win32 equivalent and we are good to go
+	
+	//Some caveats
+	//Original path should be valid file path - file must exist and everything
+	//Algorithm can be mofified to also allow directory as original path - but it still must exist
+	//If something goes wrong, algorithm will return original path
+	//In most cases it is justified (original path not valid, WoW64 path can't be retrieved, etc.) but in some cases (e.g. error in wchar_t<>char conversion) it is false-negative
+	//Again, algorithm can be modified to additionally show when it's really some unrelated error and when supplied path just not redirected one
+
+	if (!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject)
+		return query_path;
+	
+	UINT chars_num=fnGetSystemWow64DirectoryW(NULL, 0);
+	if (!chars_num)
+		return query_path;
+	
+	wchar_t wow64_path[chars_num+4]=L"\\??\\";	//4 is length of "\??\" in characters
+	if (!fnGetSystemWow64DirectoryW(wow64_path+4, chars_num))
+		return query_path;
+	
+	chars_num=MultiByteToWideChar(CP_ACP, 0, query_path, -1, NULL, 0);
+	if (!chars_num)
+		return query_path;
+	
+	wchar_t wq_path[chars_num+4]=L"\\??\\";	//4 is length of "\??\" in characters
+	if (!MultiByteToWideChar(CP_ACP, 0, query_path, -1, wq_path+4, chars_num))
+		return query_path;
+	
+	HANDLE hFile;
+	OBJECT_ATTRIBUTES objAttribs;	
+	UNICODE_STRING ustr_fpath={(USHORT)(wcslen(wq_path)*sizeof(wchar_t)), (USHORT)((wcslen(wq_path)+1)*sizeof(wchar_t)), wq_path};
+	IO_STATUS_BLOCK ioStatusBlock;
+	
+	InitializeObjectAttributes(&objAttribs, &ustr_fpath, OBJ_CASE_INSENSITIVE, NULL, NULL);	
+	if (!NT_SUCCESS(fnNtCreateFile(&hFile, FILE_READ_ATTRIBUTES, &objAttribs, &ioStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, FILE_OPEN, FILE_NON_DIRECTORY_FILE, NULL, 0)))
+		return query_path;
+	
+	DWORD buf_len=wcslen(wq_path)*sizeof(wchar_t)+1024;
+	BYTE oni_buf_wqpath[buf_len];
+	if (!NT_SUCCESS(fnNtQueryObject(hFile, ObjectNameInformation, (OBJECT_NAME_INFORMATION*)oni_buf_wqpath, buf_len, NULL))) {
+		CloseHandle(hFile);
+		return query_path;
+	}	
+	CloseHandle(hFile);
+	
+	ustr_fpath.Length=(USHORT)(wcslen(wow64_path)*sizeof(wchar_t));
+	ustr_fpath.MaximumLength=(USHORT)((wcslen(wow64_path)+1)*sizeof(wchar_t));
+	ustr_fpath.Buffer=wow64_path;
+	
+	InitializeObjectAttributes(&objAttribs, &ustr_fpath, OBJ_CASE_INSENSITIVE, NULL, NULL);	
+	if (!NT_SUCCESS(fnNtCreateFile(&hFile, FILE_READ_ATTRIBUTES, &objAttribs, &ioStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, FILE_OPEN, FILE_DIRECTORY_FILE, NULL, 0)))
+		return query_path;
+	
+	buf_len=wcslen(wow64_path)*sizeof(wchar_t)+1024;
+	BYTE oni_buf_wow64path[buf_len];
+	if (!NT_SUCCESS(fnNtQueryObject(hFile, ObjectNameInformation, (OBJECT_NAME_INFORMATION*)oni_buf_wow64path, buf_len, NULL))) {
+		CloseHandle(hFile);
+		return query_path;
+	}	
+	CloseHandle(hFile);
+	
+	wchar_t* wow64_krn_path=(wchar_t*)((OBJECT_NAME_INFORMATION*)oni_buf_wow64path)->Name.Buffer;
+	wchar_t* wq_krn_path=(wchar_t*)((OBJECT_NAME_INFORMATION*)oni_buf_wqpath)->Name.Buffer;
+	chars_num=wcslen(wow64_krn_path);
+	//First check that queried path is prefixed by WoW64 path
+	//By checking that wow64_krn_path length is not 0 we ensure that wcsncmp will not return false-positive and that both paths are not empty
+	if (!chars_num||wcsncmp(wow64_krn_path, wq_krn_path, chars_num))
+		return query_path;
+	
+	//If it is prefixed and prefix doesn't end with backslash - check that character next to prefix is backslash
+	//We don't check if wq_krn_path is less-pr-equal to wow64_krn_path because wq_krn_path can only be file path that is by definition longer than it's directory prefix
+	if (wow64_krn_path[chars_num-1]!=L'\\'&&wq_krn_path[chars_num]!=L'\\')
+		return query_path;
+	
+	//Now everything is alright and we can swap prefix with it's Win32 equivalent
+	wchar_t wunrd_path[wcslen(wow64_path)+wcslen(wq_krn_path)-chars_num+1];
+	wcscpy(wunrd_path, wow64_path);
+	wcscat(wunrd_path, wq_krn_path+chars_num);
+	
+	chars_num=WideCharToMultiByte(CP_ACP, 0, wunrd_path+4, -1, NULL, 0, NULL, NULL);	//4 is length of "\??\" in characters
+	if (!chars_num)
+		return query_path;
+	
+	char unredirected_path[chars_num];
+	if (!WideCharToMultiByte(CP_ACP, 0, wunrd_path+4, -1, unredirected_path, chars_num, NULL, NULL))	//4 is length of "\??\" in characters
+		return query_path;
+	
+	return unredirected_path;
+#endif
+}
+
+std::string PathViaLoadLibrary(const char* query_path) 
+{
+	//PrintFileInformation expects that just file name will be supplied, not a full path
+	//Because most Windows files that are relevant to OS detection are system DLLs - to find full path some LoadLibrary-like search algorithm should be used for best results
+	//It turns out that more straightforward approach is the most efffective here - just let LoadRibrary load file in question and then get loaded module path
+	//It is somehow redundand but it safer than implementing own LoadLibrary-like search algorithm (and MSDN specifically states that SearchPath shouldn't be used as substitute)
+	//Also GetFileVersionInfo behaves similar - instead of parsing file resources on it's own, it relies on LoadLibrary to do it
+	
+	//LoadLibrary can't load libraries if it's path exceeds MAX_PATH so it's safe to assume that MAX_PATH is enough to hold full library path
+	char full_path[MAX_PATH];
+	DWORD retlen=0;
+	//First see if this library was already loaded by current process
+	if (HMODULE hMod=GetModuleHandle(query_path)) {
+		retlen=GetModuleFileName(hMod, full_path, MAX_PATH);
+	/*
+	//That way we don't execute DLLMain but we have to convert NT path to Win32
+	} else if (HMODULE hMod=LoadLibraryEx(query_path, NULL, LOAD_LIBRARY_AS_DATAFILE)) {
+		char pszFilename[MAX_PATH]="";
+		fnGetMappedFileName(GetCurrentProcess(), hMod, pszFilename, MAX_PATH);
+		//balh, blah, retlen...
+	}
+	*/
+	//If not - load it and get path
+	} else if (HMODULE hMod=LoadLibrary(query_path)) {
+		retlen=GetModuleFileName(hMod, full_path, MAX_PATH);
+		FreeLibrary(hMod);
+	}
+	
+	//GetModuleFileName returns 0 if everything is bad and nSize (which is MAX_PATH) if buffer size is insufficient and returned path truncated
+	//In case of MAX_PATH, buffer size really should be enough to hold any library path but someday MS may decide to lift LoadLibrary limitation on path size
+	//It's better to be safe than sorry
+	if (retlen&&retlen<MAX_PATH)
+		//It is observed that some file paths returned by GetModuleFileName are not affected by WoW64 redirection
+		//But it's not always the case so it's better to convert anyway
+		return UnredirectWow64FsPath(full_path);
+	else
+		return "";
+}
+
+std::string PathViaSearchPath(const char* query_path) 
+{
+	//Fallback variant if PathViaLoadLibrary failed
+	//In this case file doesn't seem to be valid library (otherwise PathViaLoadLibrary would have worked) so go on and use SearchPath
+
+	if (DWORD buflen=SearchPath(NULL, query_path, NULL, 0, NULL, NULL)) {
+		char full_path[buflen];
+		if (SearchPath(NULL, query_path, NULL, buflen, full_path, NULL)) {
+			return UnredirectWow64FsPath(full_path);
+		}
+	}
+	
+	return "";
+}
+
+void PrintFileInformation(const char* query_path) 
 {
 	//Some Windows system files bear information that can help in detecting Windows version
 	//Most of these files are PE DLLs but some are also LE VXDs
@@ -259,56 +431,52 @@ bool PrintFileInformation(const char* fpath)
 	//But binary can be shipped modified by Microsoft and on Win 9x HH:MM:SS portion of modified date actually contains build number instead of real modified time
 	//LE files have ModuleVersion field in the headder but it's not used in any of system VXDs
 	//"File not found" is a result - absence/presence of specific files also helps in detecting OS version (ex: USB supplement)
+	//Also see comments for PathViaLoadLibrary to find out how queried file is searched
 	
-	DWORD buflen;
-	if ((buflen=SearchPath(NULL, fpath, NULL, 0, NULL, NULL))) {
-		char fullpth[buflen];
-		if (SearchPath(NULL, fpath, NULL, buflen, fullpth, NULL)) {
-			bool got_info=false;
+	std::string full_path=PathViaLoadLibrary(query_path);
+	if (full_path.empty()) full_path=PathViaSearchPath(query_path);
+	
+	if (full_path.empty()) {
+		std::cout<<query_path<<" - file not found!"<<std::endl;
+	} else {			
+		bool got_info=false;
+		std::cout<<query_path<<" ("<<full_path<<"):"<<std::endl;
+		
+		HANDLE hFile=CreateFile(full_path.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile!=INVALID_HANDLE_VALUE) {
+			FILETIME ft_utc, ft_local;
+			SYSTEMTIME st_local;
 			
-			std::cout<<fpath<<" ("<<fullpth<<"):"<<std::endl;
-			
-			HANDLE hFile=CreateFile(fullpth, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			if (hFile!=INVALID_HANDLE_VALUE) {
-				FILETIME ft_utc, ft_local;
-				SYSTEMTIME st_local;
-				
-				if (GetFileTime(hFile, NULL, NULL, &ft_utc)&&FileTimeToLocalFileTime(&ft_utc, &ft_local)&&FileTimeToSystemTime(&ft_local, &st_local)) {
-					std::cout<<"\tGetFileTime.lpLastWriteTime = "<<COUT_FIX(st_local.wDay, 2)<<"/"<<COUT_FIX(st_local.wMonth, 2)<<"/"<<COUT_FIX(st_local.wYear, 2)<<" "<<COUT_FIX(st_local.wHour, 2)<<":"<<COUT_FIX(st_local.wMinute, 2)<<":"<<COUT_FIX(st_local.wSecond, 2)<<std::endl;
-					got_info=true;
-				}
-				
-				CloseHandle(hFile); 
+			if (GetFileTime(hFile, NULL, NULL, &ft_utc)&&FileTimeToLocalFileTime(&ft_utc, &ft_local)&&FileTimeToSystemTime(&ft_local, &st_local)) {
+				std::cout<<"\tGetFileTime.lpLastWriteTime = "<<COUT_FIX(st_local.wDay, 2)<<"/"<<COUT_FIX(st_local.wMonth, 2)<<"/"<<COUT_FIX(st_local.wYear, 2)<<" "<<COUT_FIX(st_local.wHour, 2)<<":"<<COUT_FIX(st_local.wMinute, 2)<<":"<<COUT_FIX(st_local.wSecond, 2)<<std::endl;
+				got_info=true;
 			}
 			
-			if ((buflen=GetFileVersionInfoSize(fullpth, NULL))) {	
-				BYTE retbuf[buflen];
-				if (GetFileVersionInfo(fullpth, 0, buflen, (LPVOID)retbuf)) {	
-					//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use VERSIONINFO from this file instead of original one
-					//So information can differ between what Explorer show (actual file VERSIONINFO) and what GetFileVersionInfo retreives
-					LANGANDCODEPAGE *plcp;
-					UINT lcplen;
-					if (VerQueryValue((LPVOID)retbuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &lcplen)&&lcplen>=sizeof(LANGANDCODEPAGE)) {
-						//We are interested only in first ranslation - most system files have only one VERSIONINFO translation
-						char *value;
-						UINT valuelen;
-						std::stringstream qstr;
-						qstr<<std::nouppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
-						if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &valuelen)) {
-							std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
-							got_info=true;
-						}
+			CloseHandle(hFile); 
+		}
+		
+		if (DWORD buflen=GetFileVersionInfoSize(full_path.c_str(), NULL)) {	
+			BYTE retbuf[buflen];
+			if (GetFileVersionInfo(full_path.c_str(), 0, buflen, (LPVOID)retbuf)) {	
+				//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use VERSIONINFO from this file instead of original one
+				//So information can differ between what Explorer show (actual file VERSIONINFO) and what GetFileVersionInfo retreives
+				LANGANDCODEPAGE *plcp;
+				UINT lcplen;
+				if (VerQueryValue((LPVOID)retbuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &lcplen)&&lcplen>=sizeof(LANGANDCODEPAGE)) {
+					//We are interested only in first translation - most system files have only one VERSIONINFO translation anyway
+					char *value;
+					UINT valuelen;
+					std::stringstream qstr;
+					qstr<<std::nouppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
+					if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &valuelen)) {
+						std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
+						got_info=true;
 					}
 				}
 			}
-			
-			if (!got_info)
-				std::cout<<"\tNO INFORMATION FOUND"<<std::endl;
-			
-			return true;
 		}
-	}		
-	
-	std::cout<<fpath<<" - file not found!"<<std::endl;
-	return false;
+		
+		if (!got_info)
+			std::cout<<"\tNO INFORMATION FOUND"<<std::endl;	
+	}
 }
