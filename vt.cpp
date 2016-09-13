@@ -46,7 +46,7 @@ LabeledValues ProductInfoTypes(LABELED_VALUES_ARG(PRODUCT_UNDEFINED, PRODUCT_ULT
 BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
 
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
-void PrintFileInformation(const char* fpath);
+void PrintFileInformation(const char* fpath, BOOL wow64);
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
 
 int main(int argc, char* argv[])
@@ -160,11 +160,11 @@ int main(int argc, char* argv[])
 	std::cout<<"Current EXE build is x86"<<std::endl;
 #endif
 	
+	BOOL wow64=FALSE;
 	if (fnIsWow64Process) {	
 		//Test if current process is running under WOW64
-		BOOL wow64;
 		if (fnIsWow64Process(GetCurrentProcess(), &wow64))
-			std::cout<<"IsWow64Process = "<<COUT_BOOL(wow64)<<std::endl;
+			std::cout<<"IsWow64Process = "<<COUT_BOOL(wow64==TRUE)<<std::endl;
 		else
 			std::cout<<"IsWow64Process failed!"<<std::endl;
 	} else
@@ -188,9 +188,9 @@ int main(int argc, char* argv[])
 	
 	std::cout<<std::endl;
 	
-	PrintFileInformation("KERNEL32.DLL");
-	PrintFileInformation("USER.EXE");
-	PrintFileInformation("NTKERN.VXD");
+	PrintFileInformation("KERNEL32.DLL", wow64);
+	PrintFileInformation("USER.EXE", wow64);
+	PrintFileInformation("NTKERN.VXD", wow64);
 	
 	std::cout<<std::endl;
     
@@ -259,7 +259,7 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 		std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<" - error while opening!"<<std::endl;
 }
 
-std::string UnredirectWow64FsPath(const char* query_path)
+std::string UnredirectWow64FsPath(const char* query_path, BOOL wow64)
 {
 #ifdef _WIN64
 	//Useless for 64-bit binary - no redirection is done for it
@@ -284,24 +284,31 @@ std::string UnredirectWow64FsPath(const char* query_path)
 	//In most cases it is justified (original path not valid, WoW64 path can't be retrieved, etc.) but in some cases (e.g. error in wchar_t<>char conversion) it is false-negative
 	//Again, algorithm can be modified to additionally show when it's really some unrelated error and when supplied path just not redirected one
 
-	if (!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject)
+	//If not on WoW64 - obviously return query_path (aka original string)
+	//If WoW64 if TRUE all functions below in theory should be available
+	//But because calling unavailable function potentially causes access violation it's a good thing to check them anyway (NT funstions are subject to change according to MS)
+	//(And treat unavailability of functions as unavailability of WoW64)
+	if (wow64!=TRUE||!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject)
 		return query_path;
 	
 	UINT chars_num=fnGetSystemWow64DirectoryW(NULL, 0);
-	if (!chars_num)
-		return query_path;
+	//GetSystemWow64Directory can fail with GetLastError()==ERROR_CALL_NOT_IMPLEMENTED indicating that we should return query_path because there are no WoW64 obviously
+	//But it is impossible case because wow64 should be FALSE for that to work and we have already checked for it to be TRUE
+	//So if GetSystemWow64Directory failed - it failed for some other nasty reason - treat as conversion error
+	if (!chars_num) 
+		return "";
 	
-	wchar_t wow64_path[chars_num+4]=L"\\??\\";	//4 is length of "\??\" in characters
+	wchar_t wow64_path[chars_num+4]=L"\\??\\";	//4 is length of "\??\" in characters not including '\0'
 	if (!fnGetSystemWow64DirectoryW(wow64_path+4, chars_num))
-		return query_path;
+		return "";
 	
 	chars_num=MultiByteToWideChar(CP_ACP, 0, query_path, -1, NULL, 0);
 	if (!chars_num)
-		return query_path;
+		return "";
 	
-	wchar_t wq_path[chars_num+4]=L"\\??\\";	//4 is length of "\??\" in characters
+	wchar_t wq_path[chars_num+4]=L"\\??\\";	//4 is length of "\??\" in characters not including '\0'
 	if (!MultiByteToWideChar(CP_ACP, 0, query_path, -1, wq_path+4, chars_num))
-		return query_path;
+		return "";
 	
 	HANDLE hFile;
 	OBJECT_ATTRIBUTES objAttribs;	
@@ -310,13 +317,18 @@ std::string UnredirectWow64FsPath(const char* query_path)
 	
 	InitializeObjectAttributes(&objAttribs, &ustr_fpath, OBJ_CASE_INSENSITIVE, NULL, NULL);	
 	if (!NT_SUCCESS(fnNtCreateFile(&hFile, FILE_READ_ATTRIBUTES, &objAttribs, &ioStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, FILE_OPEN, FILE_NON_DIRECTORY_FILE, NULL, 0)))
-		return query_path;
+		return "";
 	
 	DWORD buf_len=wcslen(wq_path)*sizeof(wchar_t)+1024;
 	BYTE oni_buf_wqpath[buf_len];
 	if (!NT_SUCCESS(fnNtQueryObject(hFile, ObjectNameInformation, (OBJECT_NAME_INFORMATION*)oni_buf_wqpath, buf_len, NULL))) {
 		CloseHandle(hFile);
-		return query_path;
+		//NtQueryObject can fail with STATUS_INVALID_INFO_CLASS indicating that ObjectNameInformation class is not supported
+		//This could in theory happen on some damn old NT that, because of it's age, shouldn't also support WoW64
+		//But we have already checked wow64 variable and it should be TRUE if we are here
+		//So if NtQueryObject failed - it failed for some other nasty reason
+		//Also we are specifically checking returned path to be non-zero because of NtQueryObject erratic behaviour
+		return "";
 	}	
 	CloseHandle(hFile);
 	
@@ -326,47 +338,47 @@ std::string UnredirectWow64FsPath(const char* query_path)
 	
 	InitializeObjectAttributes(&objAttribs, &ustr_fpath, OBJ_CASE_INSENSITIVE, NULL, NULL);	
 	if (!NT_SUCCESS(fnNtCreateFile(&hFile, FILE_READ_ATTRIBUTES, &objAttribs, &ioStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, FILE_OPEN, FILE_DIRECTORY_FILE, NULL, 0)))
-		return query_path;
+		return "";
 	
 	buf_len=wcslen(wow64_path)*sizeof(wchar_t)+1024;
 	BYTE oni_buf_wow64path[buf_len];
 	if (!NT_SUCCESS(fnNtQueryObject(hFile, ObjectNameInformation, (OBJECT_NAME_INFORMATION*)oni_buf_wow64path, buf_len, NULL))) {
 		CloseHandle(hFile);
-		return query_path;
+		return "";
 	}	
 	CloseHandle(hFile);
 	
-	wchar_t* wow64_krn_path=(wchar_t*)((OBJECT_NAME_INFORMATION*)oni_buf_wow64path)->Name.Buffer;
-	wchar_t* wq_krn_path=(wchar_t*)((OBJECT_NAME_INFORMATION*)oni_buf_wqpath)->Name.Buffer;
-	chars_num=wcslen(wow64_krn_path);
+	wchar_t* wow64_krn_path=((OBJECT_NAME_INFORMATION*)oni_buf_wow64path)->Name.Buffer;
+	wchar_t* wq_krn_path=((OBJECT_NAME_INFORMATION*)oni_buf_wqpath)->Name.Buffer;
+	chars_num=((OBJECT_NAME_INFORMATION*)oni_buf_wow64path)->Name.Length/sizeof(wchar_t);
 	//First check that queried path is prefixed by WoW64 path
-	//By checking that wow64_krn_path length is not 0 we ensure that wcsncmp will not return false-positive and that both paths are not empty
-	if (!chars_num||wcsncmp(wow64_krn_path, wq_krn_path, chars_num))
+	//Length of wow64_krn_path (chars_num) is guaranteed to be >0 because otherwise NtCreateFile or NtQueryObject should have failed
+	if (wcsncmp(wow64_krn_path, wq_krn_path, chars_num))
 		return query_path;
 	
 	//If it is prefixed and prefix doesn't end with backslash - check that character next to prefix is backslash
-	//We don't check if wq_krn_path is less-pr-equal to wow64_krn_path because wq_krn_path can only be file path that is by definition longer than it's directory prefix
+	//We don't check wq_krn_path length because wq_krn_path can only be file path and if it passed wcsncmp, then it should be longer than it's directory prefix
 	if (wow64_krn_path[chars_num-1]!=L'\\'&&wq_krn_path[chars_num]!=L'\\')
 		return query_path;
 	
 	//Now everything is alright and we can swap prefix with it's Win32 equivalent
-	wchar_t wunrd_path[wcslen(wow64_path)+wcslen(wq_krn_path)-chars_num+1];
+	wchar_t wunrd_path[wcslen(wow64_path)+((OBJECT_NAME_INFORMATION*)oni_buf_wqpath)->Name.Length/sizeof(wchar_t)-chars_num+1];
 	wcscpy(wunrd_path, wow64_path);
 	wcscat(wunrd_path, wq_krn_path+chars_num);
 	
-	chars_num=WideCharToMultiByte(CP_ACP, 0, wunrd_path+4, -1, NULL, 0, NULL, NULL);	//4 is length of "\??\" in characters
+	chars_num=WideCharToMultiByte(CP_ACP, 0, wunrd_path+4, -1, NULL, 0, NULL, NULL);	//4 is length of "\??\" in characters not including '\0'
 	if (!chars_num)
-		return query_path;
+		return "";
 	
 	char unredirected_path[chars_num];
-	if (!WideCharToMultiByte(CP_ACP, 0, wunrd_path+4, -1, unredirected_path, chars_num, NULL, NULL))	//4 is length of "\??\" in characters
-		return query_path;
+	if (!WideCharToMultiByte(CP_ACP, 0, wunrd_path+4, -1, unredirected_path, chars_num, NULL, NULL))	//4 is length of "\??\" in characters not including '\0'
+		return "";
 	
 	return unredirected_path;
 #endif
 }
 
-std::string PathViaLoadLibrary(const char* query_path) 
+std::string PathViaLoadLibrary(const char* query_path, BOOL wow64) 
 {
 	//PrintFileInformation expects that just file name will be supplied, not a full path
 	//Because most Windows files that are relevant to OS detection are system DLLs - to find full path some LoadLibrary-like search algorithm should be used for best results
@@ -380,19 +392,21 @@ std::string PathViaLoadLibrary(const char* query_path)
 	//First see if this library was already loaded by current process
 	if (HMODULE hMod=GetModuleHandle(query_path)) {
 		retlen=GetModuleFileName(hMod, full_path, MAX_PATH);
-	/*
+	
 	//That way we don't execute DLLMain but we have to convert NT path to Win32
 	} else if (HMODULE hMod=LoadLibraryEx(query_path, NULL, LOAD_LIBRARY_AS_DATAFILE)) {
 		char pszFilename[MAX_PATH]="";
 		fnGetMappedFileName(GetCurrentProcess(), hMod, pszFilename, MAX_PATH);
+		FreeLibrary(hMod);
+		return pszFilename;
 		//balh, blah, retlen...
 	}
-	*/
+	
 	//If not - load it and get path
-	} else if (HMODULE hMod=LoadLibrary(query_path)) {
+	/*} else if (HMODULE hMod=LoadLibrary(query_path)) {
 		retlen=GetModuleFileName(hMod, full_path, MAX_PATH);
 		FreeLibrary(hMod);
-	}
+	}*/
 	
 	//GetModuleFileName returns 0 if everything is bad and nSize (which is MAX_PATH) if buffer size is insufficient and returned path truncated
 	//In case of MAX_PATH, buffer size really should be enough to hold any library path but someday MS may decide to lift LoadLibrary limitation on path size
@@ -400,12 +414,12 @@ std::string PathViaLoadLibrary(const char* query_path)
 	if (retlen&&retlen<MAX_PATH)
 		//It is observed that some file paths returned by GetModuleFileName are not affected by WoW64 redirection
 		//But it's not always the case so it's better to convert anyway
-		return UnredirectWow64FsPath(full_path);
+		return UnredirectWow64FsPath(full_path, wow64);
 	else
 		return "";
 }
 
-std::string PathViaSearchPath(const char* query_path) 
+std::string PathViaSearchPath(const char* query_path, BOOL wow64) 
 {
 	//Fallback variant if PathViaLoadLibrary failed
 	//In this case file doesn't seem to be valid library (otherwise PathViaLoadLibrary would have worked) so go on and use SearchPath
@@ -413,14 +427,14 @@ std::string PathViaSearchPath(const char* query_path)
 	if (DWORD buflen=SearchPath(NULL, query_path, NULL, 0, NULL, NULL)) {
 		char full_path[buflen];
 		if (SearchPath(NULL, query_path, NULL, buflen, full_path, NULL)) {
-			return UnredirectWow64FsPath(full_path);
+			return UnredirectWow64FsPath(full_path, wow64);
 		}
 	}
 	
 	return "";
 }
 
-void PrintFileInformation(const char* query_path) 
+void PrintFileInformation(const char* query_path, BOOL wow64) 
 {
 	//Some Windows system files bear information that can help in detecting Windows version
 	//Most of these files are PE DLLs but some are also LE VXDs
@@ -433,8 +447,8 @@ void PrintFileInformation(const char* query_path)
 	//"File not found" is a result - absence/presence of specific files also helps in detecting OS version (ex: USB supplement)
 	//Also see comments for PathViaLoadLibrary to find out how queried file is searched
 	
-	std::string full_path=PathViaLoadLibrary(query_path);
-	if (full_path.empty()) full_path=PathViaSearchPath(query_path);
+	std::string full_path=PathViaLoadLibrary(query_path, wow64);
+	if (full_path.empty()) full_path=PathViaSearchPath(query_path, wow64);
 	
 	if (full_path.empty()) {
 		std::cout<<query_path<<" - file not found!"<<std::endl;
