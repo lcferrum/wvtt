@@ -280,13 +280,10 @@ std::string UnredirectWow64FsPath(const char* query_path, BOOL wow64)
 	//Some caveats
 	//Original path should be valid file path - file must exist and everything
 	//Algorithm can be mofified to also allow directory as original path - but it still must exist
-	//If something goes wrong, algorithm will return original path
-	//In most cases it is justified (original path not valid, WoW64 path can't be retrieved, etc.) but in some cases (e.g. error in wchar_t<>char conversion) it is false-negative
-	//Again, algorithm can be modified to additionally show when it's really some unrelated error and when supplied path just not redirected one
 
 	//If not on WoW64 - obviously return query_path (aka original string)
-	//If WoW64 if TRUE all functions below in theory should be available
-	//But because calling unavailable function potentially causes access violation it's a good thing to check them anyway (NT funstions are subject to change according to MS)
+	//If WoW64 is TRUE, all functions below in theory should be available
+	//But because calling unavailable function potentially causes access violation it's a good thing to check them anyway (NT functions are subject to change according to MS)
 	//(And treat unavailability of functions as unavailability of WoW64)
 	if (wow64!=TRUE||!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject)
 		return query_path;
@@ -294,7 +291,7 @@ std::string UnredirectWow64FsPath(const char* query_path, BOOL wow64)
 	UINT chars_num=fnGetSystemWow64DirectoryW(NULL, 0);
 	//GetSystemWow64Directory can fail with GetLastError()==ERROR_CALL_NOT_IMPLEMENTED indicating that we should return query_path because there are no WoW64 obviously
 	//But it is impossible case because wow64 should be FALSE for that to work and we have already checked for it to be TRUE
-	//So if GetSystemWow64Directory failed - it failed for some other nasty reason - treat as conversion error
+	//So if GetSystemWow64Directory failed: it failed for some other nasty reason - treat as conversion error
 	if (!chars_num) 
 		return "";
 	
@@ -324,10 +321,10 @@ std::string UnredirectWow64FsPath(const char* query_path, BOOL wow64)
 	if (!NT_SUCCESS(fnNtQueryObject(hFile, ObjectNameInformation, (OBJECT_NAME_INFORMATION*)oni_buf_wqpath, buf_len, NULL))) {
 		CloseHandle(hFile);
 		//NtQueryObject can fail with STATUS_INVALID_INFO_CLASS indicating that ObjectNameInformation class is not supported
-		//This could in theory happen on some damn old NT that, because of it's age, shouldn't also support WoW64
-		//But we have already checked wow64 variable and it should be TRUE if we are here
-		//So if NtQueryObject failed - it failed for some other nasty reason
-		//Also we are specifically checking returned path to be non-zero because of NtQueryObject erratic behaviour
+		//This could in theory happen on some damn old NT which, because of it's age, shouldn't also support WoW64
+		//But we have already checked WoW64 presence and it should be TRUE if we are here
+		//Or MS decided (again) to change NtQueryObject behaviour for one of the future releases and remove STATUS_INVALID_INFO_CLASS
+		//All in all, if NtQueryObject failed for any of the reasons - it's conversion error
 		return "";
 	}	
 	CloseHandle(hFile);
@@ -440,10 +437,18 @@ void PrintFileInformation(const char* query_path, BOOL wow64)
 	//Most of these files are PE DLLs but some are also LE VXDs
 	//Microsoft vaguely suggests checking VS_FIXEDFILEINFO.FILEVERSION of VERSIONINFO resource and "date" of system files to help detect OS version
 	//In reality it's better to check StringFileInfo.ProductVersion of VERSIONINFO resource and file's modified date/time
-	//ProductVersion holds version info more related to OS version than FILEVERSION that holds actual file version (TODO: example for Win ME and NT)
+	//ProductVersion holds version info more related to OS version than FILEVERSION that holds actual file version (TODO: example for Win ME and NT4)
+	//N.B.: 
+	//File properties dialog prior to Vista showed StringFileInfo.FileVersion in it's header (not actual VS_FIXEDFILEINFO.FILEVERSION)
+	//Also this version of dialog allowed to view any other (even custom) StringFileInfo item
+	//Starting from Vista only limited number of VERSIONINFO items is shown
+	//And only two of them is about versioning: VS_FIXEDFILEINFO.FILEVERSION (not StringFileInfo.FileVersion) and StringFileInfo.ProductVersion
+	//None of file properties dialog versions ever showed VS_FIXEDFILEINFO.PRODUCTVERSION
+	
 	//PE files have TimeDateStamp field in the header that contains actual build date
 	//But binary can be shipped modified by Microsoft and on Win 9x HH:MM:SS portion of modified date actually contains build number instead of real modified time
 	//LE files have ModuleVersion field in the headder but it's not used in any of system VXDs
+	
 	//"File not found" is a result - absence/presence of specific files also helps in detecting OS version (ex: USB supplement)
 	//Also see comments for PathViaLoadLibrary to find out how queried file is searched
 	
