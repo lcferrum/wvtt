@@ -280,6 +280,7 @@ std::string UnredirectWow64FsPath(const char* query_path, BOOL wow64)
 	//Some caveats
 	//Original path should be valid file path - file must exist and everything
 	//Algorithm can be mofified to also allow directory as original path - but it still must exist
+	//On any conversion error (i.e. error not related to original path not being redirected one) function returns empty string
 
 	//If not on WoW64 - obviously return query_path (aka original string)
 	//If WoW64 is TRUE, all functions below in theory should be available
@@ -289,7 +290,7 @@ std::string UnredirectWow64FsPath(const char* query_path, BOOL wow64)
 		return query_path;
 	
 	UINT chars_num=fnGetSystemWow64DirectoryW(NULL, 0);
-	//GetSystemWow64Directory can fail with GetLastError()==ERROR_CALL_NOT_IMPLEMENTED indicating that we should return query_path because there are no WoW64 obviously
+	//GetSystemWow64Directory can fail with GetLastError()=ERROR_CALL_NOT_IMPLEMENTED indicating that we should return query_path because there are no WoW64 obviously
 	//But it is impossible case because wow64 should be FALSE for that to work and we have already checked for it to be TRUE
 	//So if GetSystemWow64Directory failed: it failed for some other nasty reason - treat as conversion error
 	if (!chars_num) 
@@ -396,7 +397,7 @@ std::string PathViaLoadLibrary(const char* query_path, BOOL wow64)
 		fnGetMappedFileName(GetCurrentProcess(), hMod, pszFilename, MAX_PATH);
 		FreeLibrary(hMod);
 		return pszFilename;
-		//balh, blah, retlen...
+		//blah, blah, retlen...
 	}
 	
 	//If not - load it and get path
@@ -439,17 +440,20 @@ void PrintFileInformation(const char* query_path, BOOL wow64)
 	//In reality it's better to check StringFileInfo.ProductVersion of VERSIONINFO resource and file's modified date/time
 	//ProductVersion holds version info more related to OS version than FILEVERSION that holds actual file version (TODO: example for Win ME and NT4)
 	//N.B.: 
-	//File properties dialog prior to Vista showed StringFileInfo.FileVersion in it's header (not actual VS_FIXEDFILEINFO.FILEVERSION)
-	//Also this version of dialog allowed to view any other (even custom) StringFileInfo item
+	//File properties dialog on Win 9x showed StringFileInfo.FileVersion in it's header (not actual VS_FIXEDFILEINFO.FILEVERSION)
+	//On NT systems (up to and including XP) header showed VS_FIXEDFILEINFO.FILEVERSION instead
+	//Also these versions of dialog allowed to view any other (even custom) StringFileInfo items
 	//Starting from Vista only limited number of VERSIONINFO items is shown
-	//And only two of them is about versioning: VS_FIXEDFILEINFO.FILEVERSION (not StringFileInfo.FileVersion) and StringFileInfo.ProductVersion
-	//None of file properties dialog versions ever showed VS_FIXEDFILEINFO.PRODUCTVERSION
+	//And only two of them is about versioning: VS_FIXEDFILEINFO.FILEVERSION (but not StringFileInfo.FileVersion) and StringFileInfo.ProductVersion
+	//None of file properties dialog versions ever showed VS_FIXEDFILEINFO.PRODUCTVERSION or VS_FIXEDFILEINFO.FILEFLAGS
 	
-	//PE files have TimeDateStamp field in the header that contains actual build date
-	//But binary can be shipped modified by Microsoft and on Win 9x HH:MM:SS portion of modified date actually contains build number instead of real modified time
-	//LE files have ModuleVersion field in the headder but it's not used in any of system VXDs
+	//PE files have TimeDateStamp field in the header that contains actual build time that should match actual last modified time (if file wasn't modified)
+	//But binary can be shipped modified by Microsoft and on Win 9x HH:MM:SS portion of modified time actually contains build number instead of real timestamp
+	//Also PE header contains MajorImageVersion and MinorImageVersion fields
+	//For system DLLs these fields frequently just duplicate OS major/minor version or have some internal version unhelpful for OS version detection
+	//LE files have ModuleVersion field in the header but it's not used in any of system VXDs
 	
-	//"File not found" is a result - absence/presence of specific files also helps in detecting OS version (ex: USB supplement)
+	//"File not found" is also a result - absence/presence of specific files also helps in detecting OS version (ex: USB supplement)
 	//Also see comments for PathViaLoadLibrary to find out how queried file is searched
 	
 	std::string full_path=PathViaLoadLibrary(query_path, wow64);
