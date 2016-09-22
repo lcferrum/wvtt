@@ -6,10 +6,13 @@ pIsWow64Process fnIsWow64Process=NULL;
 pGetProductInfo fnGetProductInfo=NULL;
 pWow64DisableWow64FsRedirection fnWow64DisableWow64FsRedirection=NULL;
 pWow64RevertWow64FsRedirection fnWow64RevertWow64FsRedirection=NULL;
-pGetMappedFileName fnGetMappedFileName=NULL;
+pGetMappedFileNameW fnGetMappedFileNameW=NULL;
 pNtCreateFile fnNtCreateFile=NULL;
 pNtQueryObject fnNtQueryObject=NULL;
 pGetSystemWow64DirectoryW fnGetSystemWow64DirectoryW=NULL;
+pNtOpenSymbolicLinkObject fnNtOpenSymbolicLinkObject=NULL;
+pNtQuerySymbolicLinkObject fnNtQuerySymbolicLinkObject=NULL;
+pNtQueryInformationFile fnNtQueryInformationFile=NULL;
 pSetSearchPathMode fnSetSearchPathMode=NULL;
 pwine_get_version fnwine_get_version=NULL;
 
@@ -46,6 +49,9 @@ void Externs::LoadFunctions()
 		fnRtlGetVersion=(pRtlGetVersion)GetProcAddress(hNtDll, "RtlGetVersion");
 		fnNtCreateFile=(pNtCreateFile)GetProcAddress(hNtDll, "NtCreateFile");
 		fnNtQueryObject=(pNtQueryObject)GetProcAddress(hNtDll, "NtQueryObject");
+		fnNtQueryInformationFile=(pNtQueryInformationFile)GetProcAddress(hNtDll, "NtQueryInformationFile");
+		fnNtOpenSymbolicLinkObject=(pNtOpenSymbolicLinkObject)GetProcAddress(hNtDll, "NtOpenSymbolicLinkObject");
+		fnNtQuerySymbolicLinkObject=(pNtQuerySymbolicLinkObject)GetProcAddress(hNtDll, "NtQuerySymbolicLinkObject");
 		fnwine_get_version=(pwine_get_version)GetProcAddress(hNtDll, "wine_get_version");
 	}
 	
@@ -60,7 +66,7 @@ void Externs::LoadFunctions()
 	}
 	
 	if (hPsapi) {
-		fnGetMappedFileName=(pGetMappedFileName)GetProcAddress(hPsapi, "GetMappedFileNameA");
+		fnGetMappedFileNameW=(pGetMappedFileNameW)GetProcAddress(hPsapi, "GetMappedFileNameW");
 	}
 }
 

@@ -23,7 +23,7 @@ UPX=upx
 CFLAGS=-std=c++11 -Wno-write-strings -D_WIN32_WINNT=0x0600 -DNOMINMAX
 LDFLAGS=-static-libgcc -static-libstdc++ -lversion -s
 UPSTREAM_INC=/c/cygwin/usr/i686-w64-mingw32/sys-root/mingw/include/
-SRC=vt.cpp externs.cpp
+SRC=vt.cpp externs.cpp fp_routines.cpp
 OBJ=$(patsubst %.S,%.o,$(patsubst %.cpp,%.o,$(patsubst %.rc,%.o,$(SRC))))
 TARGET=vt.exe
 
