@@ -13,7 +13,9 @@ pGetSystemWow64DirectoryW fnGetSystemWow64DirectoryW=NULL;
 pNtOpenSymbolicLinkObject fnNtOpenSymbolicLinkObject=NULL;
 pNtQuerySymbolicLinkObject fnNtQuerySymbolicLinkObject=NULL;
 pNtQueryInformationFile fnNtQueryInformationFile=NULL;
+pNtQueryVirtualMemory fnNtQueryVirtualMemory=NULL;
 pSetSearchPathMode fnSetSearchPathMode=NULL;
+pGetFileAttributesW fnGetFileAttributesW=NULL;
 pwine_get_version fnwine_get_version=NULL;
 
 std::unique_ptr<Externs> Externs::instance;
@@ -52,6 +54,7 @@ void Externs::LoadFunctions()
 		fnNtQueryInformationFile=(pNtQueryInformationFile)GetProcAddress(hNtDll, "NtQueryInformationFile");
 		fnNtOpenSymbolicLinkObject=(pNtOpenSymbolicLinkObject)GetProcAddress(hNtDll, "NtOpenSymbolicLinkObject");
 		fnNtQuerySymbolicLinkObject=(pNtQuerySymbolicLinkObject)GetProcAddress(hNtDll, "NtQuerySymbolicLinkObject");
+		fnNtQueryVirtualMemory=(pNtQueryVirtualMemory)GetProcAddress(hNtDll, "NtQueryVirtualMemory");
 		fnwine_get_version=(pwine_get_version)GetProcAddress(hNtDll, "wine_get_version");
 	}
 	
@@ -63,6 +66,7 @@ void Externs::LoadFunctions()
 		fnGetProductInfo=(pGetProductInfo)GetProcAddress(hKernel32, "GetProductInfo");
 		fnWow64DisableWow64FsRedirection=(pWow64DisableWow64FsRedirection)GetProcAddress(hKernel32, "Wow64DisableWow64FsRedirection");
 		fnWow64RevertWow64FsRedirection=(pWow64RevertWow64FsRedirection)GetProcAddress(hKernel32, "Wow64RevertWow64FsRedirection");
+		fnGetFileAttributesW=(pGetFileAttributesW)GetProcAddress(hKernel32, "GetFileAttributesW");
 	}
 	
 	if (hPsapi) {

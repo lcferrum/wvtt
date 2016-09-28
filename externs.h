@@ -21,7 +21,7 @@ public:
 	~Externs();
 	Externs(const Externs&)=delete;				//Get rid of default copy constructor
 	Externs& operator=(const Externs&)=delete;	//Get rid of default copy assignment operator
-	Externs(const Externs&&)=delete;				//Get rid of default move constructor
+	Externs(const Externs&&)=delete;			//Get rid of default move constructor
 	Externs& operator=(const Externs&&)=delete;	//Get rid of default move assignment operator
 	
 	static bool MakeInstance();	
@@ -41,6 +41,9 @@ typedef BOOL (WINAPI *pSetSearchPathMode)(DWORD Flags);
 typedef NTSTATUS (WINAPI *pNtOpenSymbolicLinkObject)(PHANDLE LinkHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes);
 typedef NTSTATUS (WINAPI *pNtQuerySymbolicLinkObject)(HANDLE LinkHandle, PUNICODE_STRING LinkTarget, PULONG ReturnedLength);
 typedef NTSTATUS (WINAPI *pNtQueryInformationFile)(HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, ULONG Length, FILE_INFORMATION_CLASS FileInformationClass);
+enum MEMORY_INFORMATION_CLASS {MemorySectionName=0x2};
+typedef NTSTATUS (WINAPI *pNtQueryVirtualMemory)(HANDLE ProcessHandle, PVOID BaseAddress, MEMORY_INFORMATION_CLASS MemoryInformationClass, PVOID MemoryInformation, SIZE_T MemoryInformationLength, PSIZE_T ReturnLength);
+typedef DWORD (WINAPI *pGetFileAttributesW)(LPCWSTR lpFileName);
 typedef const char* (CDECL *pwine_get_version)(void);
 
 #endif //EXTERNS_H

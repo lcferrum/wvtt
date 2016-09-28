@@ -2,7 +2,7 @@
 #include "externs.h"
 #include <iostream>
 #include <vector>
-#include <ntstatus.h>	//STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_INFO_CLASS, STATUS_BUFFER_OVERFLOW, STATUS_INSUFFICIENT_RESOURCES
+#include <ntstatus.h>
 #include <windows.h>
 
 #define SYMBOLIC_LINK_QUERY 0x0001
@@ -12,15 +12,19 @@ extern pNtQuerySymbolicLinkObject fnNtQuerySymbolicLinkObject;
 extern pNtCreateFile fnNtCreateFile;
 extern pNtQueryInformationFile fnNtQueryInformationFile;
 extern pNtQueryObject fnNtQueryObject;
+extern pNtQueryVirtualMemory fnNtQueryVirtualMemory;
 extern pGetMappedFileNameW fnGetMappedFileNameW;
 extern pIsWow64Process fnIsWow64Process;
+extern pGetFileAttributesW fnGetFileAttributesW;
+extern pGetSystemWow64DirectoryW fnGetSystemWow64DirectoryW;
 
 namespace FPRoutines {
 	std::vector<std::pair<std::wstring, wchar_t>> DriveList;
-	std::wstring KernelToWin32Path(wchar_t* krn_fpath);
-	std::string UnredirectWow64FsPath(const char* fpath);
-	std::string GetSFP_LoadLibrary(const char* fname); 
-	std::string GetSFP_SearchPath(const char* fname); 
+	bool KernelToWin32Path(wchar_t* krn_fpath, std::wstring &w32_fpath, USHORT krn_ulen=USHRT_MAX, USHORT krn_umaxlen=0);
+	bool UnredirectWow64FsPath(const char* fpath, std::string &real_fpath);
+	bool GetMappedFileNameWrapper(LPVOID hMod, std::string &fpath);
+	bool GetSFP_LoadLibrary(const char* fname, std::string &fpath); 
+	bool GetSFP_SearchPath(const char* fname, std::string &fpath); 
 }
 
 void FPRoutines::FillDriveList() 
@@ -91,11 +95,12 @@ void FPRoutines::FillDriveList()
 	}
 }
 
-std::string FPRoutines::UnredirectWow64FsPath(const char* fpath)
+bool FPRoutines::UnredirectWow64FsPath(const char* fpath, std::string &real_fpath)
 {
 #ifdef _WIN64
 	//Useless for 64-bit binary - no redirection is done for it
-	return fpath;
+	real_fpath=fpath;
+	return true;
 #else
 	//How does it work
 	//We are supplying original path (prefixed with \??\ so to make NT path from it) to NtCreateFile
@@ -119,27 +124,29 @@ std::string FPRoutines::UnredirectWow64FsPath(const char* fpath)
 	//But because calling unavailable function potentially causes access violation it's a good thing to check them anyway (NT functions are subject to change according to MS)
 	//(And treat unavailability of functions as unavailability of WoW64)
 	BOOL wow64=FALSE;
-	if (!fnIsWow64Processwow64||!fnIsWow64Process(GetCurrentProcess(), &wow64)||wow64!=TRUE||!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject)
-		return fpath;
+	if (!fnIsWow64Process||!fnIsWow64Process(GetCurrentProcess(), &wow64)||wow64!=TRUE||!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject)
+		return false;
 	
 	UINT chars_num=fnGetSystemWow64DirectoryW(NULL, 0);
 	//GetSystemWow64Directory can fail with GetLastError()=ERROR_CALL_NOT_IMPLEMENTED indicating that we should return fpath because there are no WoW64 obviously
 	//But it is impossible case because wow64 should be FALSE for that to work and we have already checked for it to be TRUE
 	//So if GetSystemWow64Directory failed: it failed for some other nasty reason - treat as conversion error
 	if (!chars_num) 
-		return "";
+		return false;
 	
-	wchar_t wow64_fpath[chars_num+4]=L"\\??\\";	//4 is length of "\??\" in characters not including '\0'
+	wchar_t wow64_fpath[chars_num+4];	//4 is length of "\??\" in characters not including '\0'
+	wcscpy(wow64_fpath, L"\\??\\");
 	if (!fnGetSystemWow64DirectoryW(wow64_fpath+4, chars_num))
-		return "";
+		return false;
 	
 	chars_num=MultiByteToWideChar(CP_ACP, 0, fpath, -1, NULL, 0);
 	if (!chars_num)
-		return "";
+		return false;
 	
-	wchar_t wq_fpath[chars_num+4]=L"\\??\\";	//4 is length of "\??\" in characters not including '\0'
+	wchar_t wq_fpath[chars_num+4];	//4 is length of "\??\" in characters not including '\0'
+	wcscpy(wq_fpath, L"\\??\\");
 	if (!MultiByteToWideChar(CP_ACP, 0, fpath, -1, wq_fpath+4, chars_num))
-		return "";
+		return false;
 	
 	HANDLE hFile;
 	OBJECT_ATTRIBUTES objAttribs;	
@@ -148,7 +155,7 @@ std::string FPRoutines::UnredirectWow64FsPath(const char* fpath)
 	
 	InitializeObjectAttributes(&objAttribs, &ustr_fpath, OBJ_CASE_INSENSITIVE, NULL, NULL);	
 	if (!NT_SUCCESS(fnNtCreateFile(&hFile, FILE_READ_ATTRIBUTES, &objAttribs, &ioStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, FILE_OPEN, FILE_NON_DIRECTORY_FILE, NULL, 0)))
-		return "";
+		return false;
 	
 	DWORD buf_len=wcslen(wq_fpath)*sizeof(wchar_t)+1024;
 	BYTE oni_buf_wqpath[buf_len];
@@ -159,7 +166,7 @@ std::string FPRoutines::UnredirectWow64FsPath(const char* fpath)
 		//But we have already checked WoW64 presence and it should be TRUE if we are here
 		//Or MS decided (again) to change NtQueryObject behaviour for one of the future releases and remove STATUS_INVALID_INFO_CLASS
 		//All in all, if NtQueryObject failed for any of the reasons - it's conversion error
-		return "";
+		return false;
 	}	
 	CloseHandle(hFile);
 	
@@ -169,13 +176,13 @@ std::string FPRoutines::UnredirectWow64FsPath(const char* fpath)
 	
 	InitializeObjectAttributes(&objAttribs, &ustr_fpath, OBJ_CASE_INSENSITIVE, NULL, NULL);	
 	if (!NT_SUCCESS(fnNtCreateFile(&hFile, FILE_READ_ATTRIBUTES, &objAttribs, &ioStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, FILE_OPEN, FILE_DIRECTORY_FILE, NULL, 0)))
-		return "";
+		return false;
 	
 	buf_len=wcslen(wow64_fpath)*sizeof(wchar_t)+1024;
 	BYTE oni_buf_wow64path[buf_len];
 	if (!NT_SUCCESS(fnNtQueryObject(hFile, ObjectNameInformation, (OBJECT_NAME_INFORMATION*)oni_buf_wow64path, buf_len, NULL))) {
 		CloseHandle(hFile);
-		return "";
+		return false;
 	}	
 	CloseHandle(hFile);
 	
@@ -184,13 +191,17 @@ std::string FPRoutines::UnredirectWow64FsPath(const char* fpath)
 	chars_num=((OBJECT_NAME_INFORMATION*)oni_buf_wow64path)->Name.Length/sizeof(wchar_t);
 	//First check that queried path is prefixed by WoW64 path
 	//Length of wow64_krn_fpath (chars_num) is guaranteed to be >0 because otherwise NtCreateFile or NtQueryObject should have failed
-	if (wcsncmp(wow64_krn_fpath, wq_krn_fpath, chars_num))
-		return query_fpath;
+	if (wcsncmp(wow64_krn_fpath, wq_krn_fpath, chars_num)) {
+		real_fpath=fpath;
+		return true;
+	}
 	
 	//If it is prefixed and prefix doesn't end with backslash - check that character next to prefix is backslash
 	//We don't check wq_krn_fpath length because wq_krn_fpath can only be file path and if it passed wcsncmp, then it should be longer than it's directory prefix
-	if (wow64_krn_fpath[chars_num-1]!=L'\\'&&wq_krn_fpath[chars_num]!=L'\\')
-		return query_fpath;
+	if (wow64_krn_fpath[chars_num-1]!=L'\\'&&wq_krn_fpath[chars_num]!=L'\\') {
+		real_fpath=fpath;
+		return true;
+	}
 	
 	//Now everything is alright and we can swap prefix with it's Win32 equivalent
 	wchar_t wunrd_fpath[wcslen(wow64_fpath)+((OBJECT_NAME_INFORMATION*)oni_buf_wqpath)->Name.Length/sizeof(wchar_t)-chars_num+1];
@@ -199,20 +210,30 @@ std::string FPRoutines::UnredirectWow64FsPath(const char* fpath)
 	
 	chars_num=WideCharToMultiByte(CP_ACP, 0, wunrd_fpath+4, -1, NULL, 0, NULL, NULL);	//4 is length of "\??\" in characters not including '\0'
 	if (!chars_num)
-		return "";
+		return false;
 	
 	char unredirected_fpath[chars_num];
 	if (!WideCharToMultiByte(CP_ACP, 0, wunrd_fpath+4, -1, unredirected_fpath, chars_num, NULL, NULL))	//4 is length of "\??\" in characters not including '\0'
-		return "";
+		return false;
 	
-	return unredirected_fpath;
+	real_fpath=unredirected_fpath;
+	return true;
 #endif
 }
 
-std::wstring FPRoutines::KernelToWin32Path(wchar_t* krn_fpath) 
+//TODO:
+//Change routine in SnK to similar ans make all routines not default intialize w32_path to ""
+bool FPRoutines::KernelToWin32Path(wchar_t* krn_fpath, std::wstring &w32_fpath, USHORT krn_ulen, USHORT krn_umaxlen)
 {
-	if (!fnNtCreateFile||!fnNtQueryObject||!fnNtQueryInformationFile)
-		return L"";
+	//GetFileAttributesW is dynamically loaded along with NT function so to use the same code on Win 9x
+	if (!krn_ulen||fnGetFileAttributesW||!fnNtCreateFile||!fnNtQueryObject||!fnNtQueryInformationFile)
+		return false;
+	
+	//Function accepts both UNICODE_STRINGs and null-terminated wchar_t arrays
+	if (krn_ulen==USHRT_MAX&&krn_umaxlen==0) {
+		krn_ulen=wcslen(krn_fpath)*sizeof(wchar_t);
+		krn_umaxlen=krn_ulen+sizeof(wchar_t);
+	}
 	
 	//Basic algorithm is the following:
 	//We have NT kernel path like "\Device\HarddiskVolume2\Windows\System32\wininit.exe" and should turn it to "user-readable" Win32 path
@@ -226,7 +247,7 @@ std::wstring FPRoutines::KernelToWin32Path(wchar_t* krn_fpath)
 
 	HANDLE hFile;
 	OBJECT_ATTRIBUTES objAttribs;	
-	UNICODE_STRING ustr_fpath={(USHORT)(wcslen(krn_fpath)*sizeof(wchar_t)), (USHORT)((wcslen(krn_fpath)+1)*sizeof(wchar_t)), krn_fpath};
+	UNICODE_STRING ustr_fpath={krn_ulen, krn_umaxlen, krn_fpath};
 	IO_STATUS_BLOCK ioStatusBlock;
 	
 	InitializeObjectAttributes(&objAttribs, &ustr_fpath, OBJ_CASE_INSENSITIVE, NULL, NULL);
@@ -234,7 +255,7 @@ std::wstring FPRoutines::KernelToWin32Path(wchar_t* krn_fpath)
 	//NtCreateFile will accept only NT kernel paths
 	//NtCreateFile will not accept ordinary Win32 paths (will fail with STATUS_OBJECT_PATH_SYNTAX_BAD)
 	if (!NT_SUCCESS(fnNtCreateFile(&hFile, FILE_READ_ATTRIBUTES, &objAttribs, &ioStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, FILE_OPEN, FILE_NON_DIRECTORY_FILE, NULL, 0)))
-		return L"";
+		return false;
 	
 	//Very inconsistent function which behaviour differs between OS versions
 	//Starting from Vista things are easy - just pass NULL buffer and zero length and you'll get STATUS_INFO_LENGTH_MISMATCH and needed buffer size
@@ -246,18 +267,19 @@ std::wstring FPRoutines::KernelToWin32Path(wchar_t* krn_fpath)
 	//We'll try something similar here: we already have kernel path, only portion of which may expand to something bigger
 	//So let's assume that [current path length in bytes + 1024] is a sane buffer size (1024 - most common buffer size that Windows passes to NtQueryObject)
 	//Returned path is NULL-terminated (MaximumLength is Length plus NULL-terminator, all in bytes)
-	DWORD buf_len=wcslen(krn_fpath)*sizeof(wchar_t)+1024;
+	DWORD buf_len=krn_ulen+1024;
 	BYTE oni_buf[buf_len];
 	if (!NT_SUCCESS(fnNtQueryObject(hFile, ObjectNameInformation, (OBJECT_NAME_INFORMATION*)oni_buf, buf_len, NULL))) {
 		CloseHandle(hFile);
-		return L"";
+		return false;
 	}
 
 	wchar_t* res_krn_path=((OBJECT_NAME_INFORMATION*)oni_buf)->Name.Buffer;
 	for (std::pair<std::wstring, wchar_t> &drive: DriveList) {
 		if (!wcsncmp(drive.first.c_str(), res_krn_path, drive.first.length())&&(drive.first.back()==L'\\'||res_krn_path[drive.first.length()]==L'\\')) {
 			CloseHandle(hFile);
-			return (drive.first.back()==L'\\'?std::wstring{drive.second, L':', L'\\'}:std::wstring{drive.second, L':'})+(res_krn_path+drive.first.length());
+			w32_fpath=(drive.first.back()==L'\\'?std::wstring{drive.second, L':', L'\\'}:std::wstring{drive.second, L':'})+(res_krn_path+drive.first.length());
+			return true;
 		}
 	}
 
@@ -271,19 +293,60 @@ std::wstring FPRoutines::KernelToWin32Path(wchar_t* krn_fpath)
 	BYTE fni_buf[buf_len];
 	if (!NT_SUCCESS(fnNtQueryInformationFile(hFile, &ioStatusBlock, (FILE_NAME_INFORMATION*)fni_buf, buf_len, FileNameInformation))) {
 		CloseHandle(hFile);
-		return L"";
+		return false;
 	}
 	
 	CloseHandle(hFile);
-	return std::wstring{L'\\'}+std::wstring(((FILE_NAME_INFORMATION*)fni_buf)->FileName, ((FILE_NAME_INFORMATION*)fni_buf)->FileNameLength/sizeof(wchar_t));
+	w32_fpath=std::wstring{L'\\'}+std::wstring(((FILE_NAME_INFORMATION*)fni_buf)->FileName, ((FILE_NAME_INFORMATION*)fni_buf)->FileNameLength/sizeof(wchar_t));
+	DWORD dwAttrib=fnGetFileAttributesW(w32_fpath.c_str());
+	if (dwAttrib!=INVALID_FILE_ATTRIBUTES&&!(dwAttrib&FILE_ATTRIBUTE_DIRECTORY))
+		return true;
+
+	w32_fpath=L"";
+	return false;
 }
 
-std::string FPRoutines::GetSFP_LoadLibrary(const char* fname)
+bool FPRoutines::GetMappedFileNameWrapper(LPVOID hMod, std::string &fpath)
 {
-	//LoadLibrary can't load libraries if it's path exceeds MAX_PATH so it's safe to assume that MAX_PATH is enough to hold full library path
+	//Alright, this is reinvention of GetMappedFileName from psapi.dll
+	//But we have several reasons for this
+	//NT4 not necessarry includes this DLL out-of-the-box - official MS installation disk doesn't have as none of SPs
+	//It should be installed as redistributable package that shipped separately (psinst.exe) or as part of "Windows NT 4.0 Resource Kit" or "Windows NT 4.0 SDK"
+	//Though most modern non-MS "all-inclusive" NT4 install disks usually install it by default
+	//On Win 9x we have no psapi.dll though some "unofficial" SPs for 9x systems install it anyway
+	//In the end exporting it dynamically may succeed on Win 9x if such SP was installed but using it will result in crash
+	//So here we re-implementing NT's GetMappedFileName so not to be dependent on psapi.dll and also be able to implement it for Win 9x
+	if (fnNtQueryVirtualMemory) {
+		//Actual string buffer size is MAX_PATH characters - same size is used in MS's GetMappedFileName implementation
+		SIZE_T buf_len=sizeof(UNICODE_STRING)+MAX_PATH*sizeof(wchar_t);
+		SIZE_T ret_len;
+		BYTE msn_buf[buf_len];
+		
+		if (NT_SUCCESS(fnNtQueryVirtualMemory(GetCurrentProcess(), hMod, MemorySectionName, msn_buf, buf_len, &ret_len))) {
+			//UNICODE_STRING returned by NtQueryVirtualMemory(MemorySectionName) not necessary NULL terminated
+			std::wstring w32_path;
+			if (KernelToWin32Path(((UNICODE_STRING*)msn_buf)->Buffer, w32_path, ((UNICODE_STRING*)msn_buf)->Length, ((UNICODE_STRING*)msn_buf)->MaximumLength)) {
+				if (int chars_num=WideCharToMultiByte(CP_ACP, 0, w32_path.c_str(), -1, NULL, 0, NULL, NULL)) {
+					char full_path[chars_num];
+					if (WideCharToMultiByte(CP_ACP, 0, w32_path.c_str(), -1, full_path, chars_num, NULL, NULL)) {
+						fpath=full_path;
+						return true;
+					}
+				}
+			}
+		}
+	}
+	
+	return false;
+}
+
+bool FPRoutines::GetSFP_LoadLibrary(const char* fname, std::string &fpath)
+{
 	HMODULE hMod;
 
-	if ((hMod=GetModuleHandle(fname))) {	//First see if this library was already loaded by current process
+	//First see if this library was already loaded by current process
+	if ((hMod=GetModuleHandle(fname))) {
+		//LoadLibrary can't load libraries if it's path exceeds MAX_PATH so it's safe to assume that MAX_PATH is enough to hold full library path
 		char full_path[MAX_PATH];
 		DWORD retlen=GetModuleFileName(hMod, full_path, MAX_PATH);
 		//GetModuleFileName returns 0 if everything is bad and nSize (which is MAX_PATH) if buffer size is insufficient and returned path truncated
@@ -292,32 +355,21 @@ std::string FPRoutines::GetSFP_LoadLibrary(const char* fname)
 		if (retlen&&retlen<MAX_PATH)
 			//It is observed that some file paths returned by GetModuleFileName are not affected by WoW64 redirection
 			//But it's not always the case so it's better to convert anyway
-			return UnredirectWow64FsPath(full_path);
-	} else if (fnGetMappedFileNameW&&(hMod=LoadLibraryEx(fname, NULL, LOAD_LIBRARY_AS_DATAFILE))) {	//That way we don't execute DLLMain but we have to convert NT path to Win32
-		wchar_t krn_path[MAX_PATH];
-		DWORD retlen=fnGetMappedFileNameW(GetCurrentProcess(), hMod, krn_path, MAX_PATH);
+			return UnredirectWow64FsPath(full_path, fpath);
+	//Next we load library and get path to it
+	//By using LOAD_LIBRARY_AS_DATAFILE flag we load library as resource (DLLMain not executed and no functions are exported)
+	} else if ((hMod=LoadLibraryEx(fname, NULL, LOAD_LIBRARY_AS_DATAFILE))) {
+		bool res=GetMappedFileNameWrapper(hMod, fpath);
 		FreeLibrary(hMod);
-		if (retlen) {
-			std::wstring wf_path=KernelToWin32Path(krn_path);
-			
-			int chars_num=WideCharToMultiByte(CP_ACP, 0, wf_path.c_str(), -1, NULL, 0, NULL, NULL);
-			if (!chars_num)
-				return "";
-			
-			char full_path[chars_num];
-			if (!WideCharToMultiByte(CP_ACP, 0, wf_path.c_str(), -1, full_path, chars_num, NULL, NULL))
-				return "";
-				
-			return full_path;
-		}
+		return res;
 	}
 	
-	return "";
+	return false;
 }
 
-std::string FPRoutines::GetSFP_SearchPath(const char* fname)
+bool FPRoutines::GetSFP_SearchPath(const char* fname, std::string &fpath)
 {
-	return "";
+	return false;
 }	
 
 std::string FPRoutines::GetSystemFilePath(const char* fname)

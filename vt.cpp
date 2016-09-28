@@ -2,7 +2,6 @@
 #include <iomanip>
 #include <limits>
 #include <string>
-#include <ntdef.h>
 #include <windows.h>
 #include "externs.h"
 #include "labeled_values.hpp"
@@ -48,6 +47,14 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
 void PrintFileInformation(const char* fpath, BOOL wow64);
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
 
+#ifdef __clang__
+//Obscure clang++ bug - it reports "multiple definition" of std::setfill() and __gnu_cxx::operator==() when statically linking with libstdc++
+//Observed on LLVM 3.6.2 with MinGW 4.7.2
+//This is a fix for the bug
+extern template std::_Setfill<char> std::setfill(char);													//caused by use of std::setfill(char)
+extern template bool __gnu_cxx::operator==(const std::string::iterator&, const std::string::iterator&);	//caused by use of std::remove_if(std::string::iterator, std::string::iterator, bool (*)(char))
+#endif
+
 int main(int argc, char* argv[])
 {
 	Externs::MakeInstance();
@@ -64,7 +71,7 @@ int main(int argc, char* argv[])
 
 	//Disable Windows error dialog popup for failed LoadLibrary attempts
 	//This is done so PrintFileInformation can search for needed files using LoadLibrary
-	SetErrorMode(SEM_FAILCRITICALERRORS);	
+	SetErrorMode(SEM_FAILCRITICALERRORS);
 
 	OSVERSIONINFOEX osvi_ex;
 	if (GetVersionWrapper(osvi_ex)) {
@@ -192,9 +199,13 @@ int main(int argc, char* argv[])
 	PrintFileInformation("NTKERN.VXD", wow64);
 	
 	std::cout<<std::endl;
+	
+	HMODULE hMod=LoadLibraryEx("AVICAP.DLL", NULL, LOAD_LIBRARY_AS_DATAFILE);
     
 	std::cout<<"Press ENTER to continue..."<<std::flush;
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');	//Needs defined NOMINMAX
+	
+	FreeLibrary(hMod);
 	
 	return 0;
 }
