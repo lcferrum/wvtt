@@ -22,12 +22,13 @@ First it checks if supplied filename is relative path (completely relative - to 
 If it's not relative - it applies GetFullPathName to filename and returns resulting path (whatever it might be)
 If it's relative, real search commences
 It searches supplied search path or, in case it is missing, searches these paths:
-	- Current image directory (if SafeProcessSearchMode is 0 or not supported)
+	- Current image directory
+	- Current working directory (if SafeProcessSearchMode is 0 or not supported)
 	- Windows system directory (GetSystemDirectory())
 	- Windows 16-bit system directory (GetWindowsDirectory()+\system, NT only)
 	- Windows directory (GetWindowsDirectory())
 	- Directories listed in the PATH environment variable
-	- Current image directory (if SafeProcessSearchMode is 1)
+	- Current working directory (if SafeProcessSearchMode is 1)
 Supplying extension changes behavior in the following way:
 If non relative filename, before applying GetFullPathName function checks if file exists and if not - appends extension and tries this way
 If relative filename and filename lacks extension, it is appended before the search commences
