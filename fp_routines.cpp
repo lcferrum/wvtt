@@ -24,7 +24,8 @@ namespace FPRoutines {
 	bool UnredirectWow64FsPath(const char* fpath, std::string &real_fpath);
 	bool GetMappedFileNameWrapper(LPVOID hMod, std::string &fpath);
 	bool GetSFP_LoadLibrary(const char* fname, std::string &fpath); 
-	bool GetSFP_SearchPath(const char* fname, std::string &fpath); 
+	bool GetSFP_SearchPath(const char* fname, const char* ext, std::string &fpath); 
+	bool GetSFP_SearchPatForVXD(const char* fname, std::string &fpath);
 }
 
 void FPRoutines::FillDriveList() 
@@ -124,8 +125,10 @@ bool FPRoutines::UnredirectWow64FsPath(const char* fpath, std::string &real_fpat
 	//But because calling unavailable function potentially causes access violation it's a good thing to check them anyway (NT functions are subject to change according to MS)
 	//(And treat unavailability of functions as unavailability of WoW64)
 	BOOL wow64=FALSE;
-	if (!fnIsWow64Process||!fnIsWow64Process(GetCurrentProcess(), &wow64)||wow64!=TRUE||!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject)
-		return false;
+	if (!fnIsWow64Process||!fnIsWow64Process(GetCurrentProcess(), &wow64)||wow64!=TRUE||!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject) {
+		real_fpath=fpath;
+		return true;
+	}
 	
 	UINT chars_num=fnGetSystemWow64DirectoryW(NULL, 0);
 	//GetSystemWow64Directory can fail with GetLastError()=ERROR_CALL_NOT_IMPLEMENTED indicating that we should return fpath because there are no WoW64 obviously
@@ -278,7 +281,11 @@ bool FPRoutines::KernelToWin32Path(wchar_t* krn_fpath, std::wstring &w32_fpath, 
 	for (std::pair<std::wstring, wchar_t> &drive: DriveList) {
 		if (!wcsncmp(drive.first.c_str(), res_krn_path, drive.first.length())&&(drive.first.back()==L'\\'||res_krn_path[drive.first.length()]==L'\\')) {
 			CloseHandle(hFile);
-			w32_fpath=(drive.first.back()==L'\\'?std::wstring{drive.second, L':', L'\\'}:std::wstring{drive.second, L':'})+(res_krn_path+drive.first.length());
+			if (drive.first.back()==L'\\')
+				w32_fpath={drive.second, L':', L'\\'};
+			else
+				w32_fpath={drive.second, L':'};
+			w32_fpath.append(res_krn_path+drive.first.length());
 			return true;
 		}
 	}
@@ -297,7 +304,8 @@ bool FPRoutines::KernelToWin32Path(wchar_t* krn_fpath, std::wstring &w32_fpath, 
 	}
 	
 	CloseHandle(hFile);
-	w32_fpath=std::wstring{L'\\'}+std::wstring(((FILE_NAME_INFORMATION*)fni_buf)->FileName, ((FILE_NAME_INFORMATION*)fni_buf)->FileNameLength/sizeof(wchar_t));
+	w32_fpath=L'\\';
+	w32_fpath.append(((FILE_NAME_INFORMATION*)fni_buf)->FileName, ((FILE_NAME_INFORMATION*)fni_buf)->FileNameLength/sizeof(wchar_t));
 	DWORD dwAttrib=fnGetFileAttributesW(w32_fpath.c_str());
 	if (dwAttrib!=INVALID_FILE_ATTRIBUTES&&!(dwAttrib&FILE_ATTRIBUTE_DIRECTORY))
 		return true;
@@ -310,12 +318,12 @@ bool FPRoutines::GetMappedFileNameWrapper(LPVOID hMod, std::string &fpath)
 {
 	//Alright, this is reinvention of GetMappedFileName from psapi.dll
 	//But we have several reasons for this
-	//NT4 not necessarry includes this DLL out-of-the-box - official MS installation disk doesn't have as none of SPs
+	//NT4 not necessarry includes this DLL out-of-the-box - official MS installation disks don't have one as none of SPs
 	//It should be installed as redistributable package that shipped separately (psinst.exe) or as part of "Windows NT 4.0 Resource Kit" or "Windows NT 4.0 SDK"
 	//Though most modern non-MS "all-inclusive" NT4 install disks usually install it by default
 	//On Win 9x we have no psapi.dll though some "unofficial" SPs for 9x systems install it anyway
 	//In the end exporting it dynamically may succeed on Win 9x if such SP was installed but using it will result in crash
-	//So here we re-implementing NT's GetMappedFileName so not to be dependent on psapi.dll and also be able to implement it for Win 9x
+	//So here we re-implementing NT's GetMappedFileName so not to be dependent on psapi.dll
 	if (fnNtQueryVirtualMemory) {
 		//Actual string buffer size is MAX_PATH characters - same size is used in MS's GetMappedFileName implementation
 		SIZE_T buf_len=sizeof(UNICODE_STRING)+MAX_PATH*sizeof(wchar_t);
@@ -342,6 +350,10 @@ bool FPRoutines::GetMappedFileNameWrapper(LPVOID hMod, std::string &fpath)
 
 bool FPRoutines::GetSFP_LoadLibrary(const char* fname, std::string &fpath)
 {
+	//Function searches for file as LoadLibrary itself would do it
+	//In fact it uses LoadLibrary to search the file and then just queries what it found in the end
+	//File can be already loaded by executable - in this case function gets name path to loaded module, which works for botn NT and 9x
+	//If not - LoadLibraryEx(LOAD_LIBRARY_AS_DATAFILE) is called to load it and then the name is queried, but this works only on NT
 	HMODULE hMod;
 
 	//First see if this library was already loaded by current process
@@ -367,8 +379,43 @@ bool FPRoutines::GetSFP_LoadLibrary(const char* fname, std::string &fpath)
 	return false;
 }
 
-bool FPRoutines::GetSFP_SearchPath(const char* fname, std::string &fpath)
+bool FPRoutines::GetSFP_SearchPath(const char* fname, const char* ext, std::string &fpath)
 {
+	//Here we are getting filepath using SearchPath
+	//SearchPath uses the following algorithm
+	//First it checks if supplied filename is relative path (completely relative - to both current drive and directory)
+	//If it's not relative - it applies GetFullPathName to filename and returns resulting path (whatever it might be)
+	//If it's relative, real search commences
+	//It searches supplied search path or, in case it is missing, searches these paths:
+	//	- Current image directory
+	//	- Current working directory (if SafeProcessSearchMode is 0 or not supported by OS)
+	//	- Windows system directory (GetSystemDirectory())
+	//	- Windows 16-bit system directory (GetWindowsDirectory()+"\system", NT only)
+	//	- Windows directory (GetWindowsDirectory())
+	//	- Directories listed in the PATH environment variable
+	//	- Current working directory (if SafeProcessSearchMode is 1)
+	//Supplying extension changes behavior in the following way:
+	//If non relative filename, before applying GetFullPathName function checks if file exists and if not - appends extension and tries this way
+	//If relative filename and filename lacks extension, it is appended before the search commences
+	
+	if (DWORD retlen=SearchPath(NULL, fname, ext, 0, NULL, NULL)) {
+		char full_path[retlen];
+		if (SearchPath(NULL, fname, ext, retlen, full_path, NULL)) {
+			return UnredirectWow64FsPath(full_path, fpath);
+		}
+	}
+
+	return false;
+}	
+
+bool FPRoutines::GetSFP_SearchPatForVXD(const char* fname, std::string &fpath)
+{
+	//This SearchPath call is specifically tailored to search for Win 9x VXDs
+	//It searches directories from where system and most 3rd-party static VXDs are loaded
+	//Of course 3rd-party VXD can be placed anywhere in the system
+	//But if they are loaded just by name (and not full path) they reside in these directories
+	//Querying registry and system.ini to get full paths of 3rd-party VXDs is out-of-scope for this function
+	//It was designed mostly for system VXDs
 	return false;
 }	
 
