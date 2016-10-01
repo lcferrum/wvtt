@@ -13,7 +13,6 @@ extern pNtCreateFile fnNtCreateFile;
 extern pNtQueryInformationFile fnNtQueryInformationFile;
 extern pNtQueryObject fnNtQueryObject;
 extern pNtQueryVirtualMemory fnNtQueryVirtualMemory;
-extern pGetMappedFileNameW fnGetMappedFileNameW;
 extern pIsWow64Process fnIsWow64Process;
 extern pGetFileAttributesW fnGetFileAttributesW;
 extern pGetSystemWow64DirectoryW fnGetSystemWow64DirectoryW;
@@ -23,9 +22,10 @@ namespace FPRoutines {
 	bool KernelToWin32Path(wchar_t* krn_fpath, std::wstring &w32_fpath, USHORT krn_ulen=USHRT_MAX, USHORT krn_umaxlen=0);
 	bool UnredirectWow64FsPath(const char* fpath, std::string &real_fpath);
 	bool GetMappedFileNameWrapper(LPVOID hMod, std::string &fpath);
+	bool SearchPathWrapper(const char* fname, const char* spath, const char* ext, std::string &fpath);
 	bool GetSFP_LoadLibrary(const char* fname, std::string &fpath); 
-	bool GetSFP_SearchPath(const char* fname, const char* ext, std::string &fpath); 
-	bool GetSFP_SearchPatForVXD(const char* fname, std::string &fpath);
+	bool GetSFP_SearchPathForDLL(const char* fname, std::string &fpath); 
+	bool GetSFP_SearchPathForVXD(const char* fname, std::string &fpath);
 }
 
 void FPRoutines::FillDriveList() 
@@ -301,16 +301,17 @@ bool FPRoutines::KernelToWin32Path(wchar_t* krn_fpath, std::wstring &w32_fpath, 
 	if (!NT_SUCCESS(fnNtQueryInformationFile(hFile, &ioStatusBlock, (FILE_NAME_INFORMATION*)fni_buf, buf_len, FileNameInformation))) {
 		CloseHandle(hFile);
 		return false;
-	}
+	}	
 	
 	CloseHandle(hFile);
-	w32_fpath=L'\\';
-	w32_fpath.append(((FILE_NAME_INFORMATION*)fni_buf)->FileName, ((FILE_NAME_INFORMATION*)fni_buf)->FileNameLength/sizeof(wchar_t));
-	DWORD dwAttrib=fnGetFileAttributesW(w32_fpath.c_str());
-	if (dwAttrib!=INVALID_FILE_ATTRIBUTES&&!(dwAttrib&FILE_ATTRIBUTE_DIRECTORY))
+	std::wstring unc_fpath(L"\\");
+	unc_fpath.append(((FILE_NAME_INFORMATION*)fni_buf)->FileName, ((FILE_NAME_INFORMATION*)fni_buf)->FileNameLength/sizeof(wchar_t));
+	DWORD dwAttrib=fnGetFileAttributesW(unc_fpath.c_str());
+	if (dwAttrib!=INVALID_FILE_ATTRIBUTES&&!(dwAttrib&FILE_ATTRIBUTE_DIRECTORY)) {
+		w32_fpath=std::move(unc_fpath);
 		return true;
+	}
 
-	w32_fpath=L"";
 	return false;
 }
 
@@ -379,9 +380,8 @@ bool FPRoutines::GetSFP_LoadLibrary(const char* fname, std::string &fpath)
 	return false;
 }
 
-bool FPRoutines::GetSFP_SearchPath(const char* fname, const char* ext, std::string &fpath)
+bool FPRoutines::SearchPathWrapper(const char* fname, const char* spath, const char* ext, std::string &fpath)
 {
-	//Here we are getting filepath using SearchPath
 	//SearchPath uses the following algorithm
 	//First it checks if supplied filename is relative path (completely relative - to both current drive and directory)
 	//If it's not relative - it applies GetFullPathName to filename and returns resulting path (whatever it might be)
@@ -398,17 +398,28 @@ bool FPRoutines::GetSFP_SearchPath(const char* fname, const char* ext, std::stri
 	//If non relative filename, before applying GetFullPathName function checks if file exists and if not - appends extension and tries this way
 	//If relative filename and filename lacks extension, it is appended before the search commences
 	
-	if (DWORD retlen=SearchPath(NULL, fname, ext, 0, NULL, NULL)) {
-		char full_path[retlen];
-		if (SearchPath(NULL, fname, ext, retlen, full_path, NULL)) {
-			return UnredirectWow64FsPath(full_path, fpath);
+	if (DWORD buflen=SearchPath(spath, fname, ext, 0, NULL, NULL)) {
+		char full_path[buflen];
+		if (DWORD cpylen=SearchPath(spath, fname, ext, buflen, full_path, NULL)) {
+			if (cpylen<buflen)
+				return UnredirectWow64FsPath(full_path, fpath);
 		}
 	}
 
 	return false;
-}	
+}
 
-bool FPRoutines::GetSFP_SearchPatForVXD(const char* fname, std::string &fpath)
+bool FPRoutines::GetSFP_SearchPathForDLL(const char* fname, std::string &fpath)
+{
+	//This is almost generic SearchPath call to search for all kinds of system files
+	//If no extension supplied - default "dll" is used, like in LoadLibrary call
+	//On 9x and early NTs SearchPath search algorithm is actually the same one that is used in LoadLibrary
+	//So it can be used as substitute to "getting-path-to-module-loaded-by-LoadLibrary" here
+	
+	return SearchPathWrapper(fname, NULL, "dll", fpath);
+}
+
+bool FPRoutines::GetSFP_SearchPathForVXD(const char* fname, std::string &fpath)
 {
 	//This SearchPath call is specifically tailored to search for Win 9x VXDs
 	//It searches directories from where system and most 3rd-party static VXDs are loaded
@@ -416,6 +427,25 @@ bool FPRoutines::GetSFP_SearchPatForVXD(const char* fname, std::string &fpath)
 	//But if they are loaded just by name (and not full path) they reside in these directories
 	//Querying registry and system.ini to get full paths of 3rd-party VXDs is out-of-scope for this function
 	//It was designed mostly for system VXDs
+	
+	std::vector<std::string> VxdPaths;
+	
+	if (DWORD buflen=GetSystemWindowsDirectory(NULL, 0)) {
+		char dir_path[buflen];
+		if (DWORD cpylen=GetSystemWindowsDirectory(dir_path, buflen)) {
+			if (cpylen<buflen) {
+				VxdPaths.push_back(dir_path);
+				if (dir_path[cpylen-1]=='\\') dir_path[cpylen-1]='\0';
+				VxdPaths.push_back(std::string(dir_path)+"\\VMM32");
+				VxdPaths.push_back(std::string(dir_path)+"\\IOSUBSYS");
+			}
+		}
+	}
+	
+	for (std::string &spath: VxdPaths)
+		if (SearchPathWrapper(fname, spath.c_str(), "vxd", fpath))
+			return true;
+	
 	return false;
 }	
 
