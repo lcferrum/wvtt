@@ -4,18 +4,13 @@
 #include <string>
 #include <windows.h>
 #include "externs.h"
+#include "fp_routines.h"
 #include "labeled_values.hpp"
 
 extern pRtlGetVersion fnRtlGetVersion;
 extern pGetNativeSystemInfo fnGetNativeSystemInfo;
 extern pIsWow64Process fnIsWow64Process;
 extern pGetProductInfo fnGetProductInfo;
-extern pWow64DisableWow64FsRedirection fnWow64DisableWow64FsRedirection;
-extern pWow64RevertWow64FsRedirection fnWow64RevertWow64FsRedirection;
-extern pNtCreateFile fnNtCreateFile;
-extern pNtQueryObject fnNtQueryObject;
-extern pGetSystemWow64DirectoryW fnGetSystemWow64DirectoryW;
-extern pSetSearchPathMode fnSetSearchPathMode;
 extern pwine_get_version fnwine_get_version;
 
 typedef struct _LANGANDCODEPAGE {
@@ -70,7 +65,7 @@ int main(int argc, char* argv[])
 	std::cout.setf(std::ios::uppercase); 
 
 	//Disable Windows error dialog popup for failed LoadLibrary attempts
-	//This is done so PrintFileInformation can search for needed files using LoadLibrary
+	//This is done so GetSystemFilePath can search for needed files using LoadLibrary
 	SetErrorMode(SEM_FAILCRITICALERRORS);
 
 	OSVERSIONINFOEX osvi_ex;
@@ -293,7 +288,10 @@ void PrintFileInformation(const char* query_path, BOOL wow64)
 	//"File not found" is also a result - absence/presence of specific files also helps in detecting OS version (ex: USB supplement)
 	//Also see comments for PathViaLoadLibrary to find out how queried file is searched
 	
-	std::string full_path="";
+	//Most Windows files that are relevant to OS detection are system DLLs
+	//GetSystemFilePath uses special set of routines to find full file path (from just relative file name) to such files
+	//GetSystemFilePath also accepts absolute paths
+	std::string full_path=FPRoutines::GetSystemFilePath(query_path);
 	
 	if (full_path.empty()) {
 		std::cout<<query_path<<" - file not found!"<<std::endl;

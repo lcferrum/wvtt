@@ -451,13 +451,11 @@ bool FPRoutines::GetSFP_SearchPathForVXD(const char* fname, std::string &fpath)
 
 std::string FPRoutines::GetSystemFilePath(const char* fname)
 {
-	//PrintFileInformation expects that just file name will be supplied, not a full path
-	//Because most Windows files that are relevant to OS detection are system DLLs - to find full path some LoadLibrary-like search algorithm should be used for best results
-	//It turns out that more straightforward approach is the most efffective here - just let LoadRibrary load file in question and then get loaded module path
-	//It is somehow redundand but it safer than implementing own LoadLibrary-like search algorithm (and MSDN specifically states that SearchPath shouldn't be used as substitute)
-	//Also GetFileVersionInfo behaves similar - instead of parsing file resources on it's own, it relies on LoadLibrary to do it
+	std::string fpath;
 	
-	//Fallback variant if PathViaLoadLibrary failed
-	//In this case file doesn't seem to be valid library (otherwise PathViaLoadLibrary would have worked) so go on and use SearchPath
-	return "";
+	if (!GetSFP_LoadLibrary(fname, fpath))			//First we use LoadLibrary-like search algorithm to find full file path - this works best on NT systems with real DLL files
+		if (!GetSFP_SearchPathForDLL(fname, fpath))	//If this fails, fallback option is to use SearchPath with default search location - it works best on 9x systems with DLL files and on both 9x and NT with non-DLL types
+			GetSFP_SearchPathForVXD(fname, fpath);	//On 9x VXD files can be placed in paths that differ from SearchPath default search location - for such case SearchPath is called to search in VXD specific directories
+	
+	return fpath;
 }
