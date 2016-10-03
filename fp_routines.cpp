@@ -394,9 +394,10 @@ bool FPRoutines::SearchPathWrapper(const char* fname, const char* spath, const c
 	//	- Windows directory (GetWindowsDirectory())
 	//	- Directories listed in the PATH environment variable
 	//	- Current working directory (if SafeProcessSearchMode is 1)
-	//Supplying extension changes behavior in the following way:
+	//Supplying extension (should start with period character, '.') changes behavior in the following way:
 	//If non relative filename, before applying GetFullPathName function checks if file exists and if not - appends extension and tries this way
 	//If relative filename and filename lacks extension, it is appended before the search commences
+	//If extension is supplied, it should with period (.)
 	
 	if (DWORD buflen=SearchPath(spath, fname, ext, 0, NULL, NULL)) {
 		char full_path[buflen];
@@ -416,7 +417,7 @@ bool FPRoutines::GetSFP_SearchPathForDLL(const char* fname, std::string &fpath)
 	//On 9x and early NTs SearchPath search algorithm is actually the same one that is used in LoadLibrary
 	//So it can be used as substitute to "getting-path-to-module-loaded-by-LoadLibrary" here
 	
-	return SearchPathWrapper(fname, NULL, "dll", fpath);
+	return SearchPathWrapper(fname, NULL, ".dll", fpath);
 }
 
 bool FPRoutines::GetSFP_SearchPathForVXD(const char* fname, std::string &fpath)
@@ -430,9 +431,9 @@ bool FPRoutines::GetSFP_SearchPathForVXD(const char* fname, std::string &fpath)
 	
 	std::vector<std::string> VxdPaths;
 	
-	if (DWORD buflen=GetSystemWindowsDirectory(NULL, 0)) {
+	if (DWORD buflen=GetSystemDirectory(NULL, 0)) {
 		char dir_path[buflen];
-		if (DWORD cpylen=GetSystemWindowsDirectory(dir_path, buflen)) {
+		if (DWORD cpylen=GetSystemDirectory(dir_path, buflen)) {
 			if (cpylen<buflen) {
 				VxdPaths.push_back(dir_path);
 				if (dir_path[cpylen-1]=='\\') dir_path[cpylen-1]='\0';
@@ -443,7 +444,7 @@ bool FPRoutines::GetSFP_SearchPathForVXD(const char* fname, std::string &fpath)
 	}
 	
 	for (std::string &spath: VxdPaths)
-		if (SearchPathWrapper(fname, spath.c_str(), "vxd", fpath))
+		if (SearchPathWrapper(fname, spath.c_str(), ".vxd", fpath))
 			return true;
 	
 	return false;

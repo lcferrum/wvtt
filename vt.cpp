@@ -39,7 +39,7 @@ LabeledValues ProductInfoTypes(LABELED_VALUES_ARG(PRODUCT_UNDEFINED, PRODUCT_ULT
 BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
 
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
-void PrintFileInformation(const char* fpath, BOOL wow64);
+void PrintFileInformation(const char* fpath);
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
 
 #ifdef __clang__
@@ -86,13 +86,14 @@ int main(int argc, char* argv[])
 			std::cout<<"\twServicePackMajor = "<<COUT_DEC(osvi_ex.wServicePackMajor)<<std::endl;
 			std::cout<<"\twServicePackMinor = "<<COUT_DEC(osvi_ex.wServicePackMinor)<<std::endl;
 			std::cout<<"\twSuiteMask = "<<COUT_HEX(osvi_ex.wSuiteMask, 4)<<std::endl;
-			SuiteMasks.Flags(osvi_ex.wSuiteMask, [](const std::string& label, DWORD value, bool unknown, size_t idx){
+			if (!SuiteMasks.Flags(osvi_ex.wSuiteMask, [](const std::string& label, DWORD value, bool unknown, size_t idx){
 				if (unknown)
 					std::cout<<"\t\tUNKNOWN FLAG ("<<COUT_HEX(value, 4)<<")"<<std::endl;
 				else
 					std::cout<<"\t\t"<<label<<std::endl;
 				return false;
-			});
+			}))
+				std::cout<<"\t\tNO FLAGS SET"<<std::endl;
 			std::cout<<"\twProductType = "<<COUT_HEX(osvi_ex.wProductType, 2)<<std::endl;
 			ProductTypes.Enums(osvi_ex.wProductType, [](const std::string& label, DWORD value, bool unknown, size_t idx){
 				if (unknown)
@@ -110,11 +111,14 @@ int main(int argc, char* argv[])
 	std::cout<<std::endl;
 	
 	std::cout<<"GetSystemMetrics:"<<std::endl;
-	SystemMetrics.Values([](const std::string& label, DWORD value, size_t idx){
-		if (GetSystemMetrics(value))
+	if (!SystemMetrics.Matches([](const std::string& label, DWORD value, size_t idx){
+		if (GetSystemMetrics(value)) {
 			std::cout<<"\t"<<label<<std::endl;
-		return false;
-	});
+			return true;
+		} else
+			return false;
+	}))
+		std::cout<<"\tNO METRICS FOUND"<<std::endl;
 	
 	std::cout<<std::endl;
 	
@@ -189,9 +193,9 @@ int main(int argc, char* argv[])
 	
 	std::cout<<std::endl;
 	
-	PrintFileInformation("KERNEL32.DLL", wow64);
-	PrintFileInformation("USER.EXE", wow64);
-	PrintFileInformation("NTKERN.VXD", wow64);
+	PrintFileInformation("KERNEL32.DLL");
+	PrintFileInformation("USER.EXE");
+	PrintFileInformation("NTKERN.VXD");
 	
 	std::cout<<std::endl;
 	
@@ -264,7 +268,7 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 		std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<" - error while opening!"<<std::endl;
 }
 
-void PrintFileInformation(const char* query_path, BOOL wow64) 
+void PrintFileInformation(const char* query_path) 
 {
 	//Some Windows system files bear information that can help in detecting Windows version
 	//Most of these files are PE DLLs but some are also LE VXDs

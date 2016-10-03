@@ -57,11 +57,17 @@ public:
 	size_t Size() {
 		return ValList.size();
 	}
+	size_t Matches(std::function<bool(const TSTRING&, ValT, size_t)> enum_function) {
+		size_t count=0;
+		for (std::pair<TSTRING, ValT> &val_pair: ValList)
+			if (enum_function(val_pair.first, val_pair.second, count)) count++;
+		return count;
+	}
 	size_t Values(std::function<bool(const TSTRING&, ValT, size_t)> enum_function) {
 		size_t count=0;
 		for (std::pair<TSTRING, ValT> &val_pair: ValList)
-			if (enum_function(val_pair.first, val_pair.second, count++)) break;
-		return count;
+			if (enum_function(val_pair.first, val_pair.second, count++)) return count-1;
+		return ValList.size();
 	}
 	TSTRING Values() {
 		TSTRING result;
