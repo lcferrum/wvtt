@@ -19,7 +19,7 @@ extern pGetSystemWow64DirectoryW fnGetSystemWow64DirectoryW;
 
 namespace FPRoutines {
 	std::vector<std::pair<std::wstring, wchar_t>> DriveList;
-	bool KernelToWin32Path(wchar_t* krn_fpath, std::wstring &w32_fpath, USHORT krn_ulen=USHRT_MAX, USHORT krn_umaxlen=0);
+	bool KernelToWin32Path(const wchar_t* krn_fpath, std::wstring &w32_fpath, USHORT krn_ulen=USHRT_MAX, USHORT krn_umaxlen=0);
 	bool UnredirectWow64FsPath(const char* fpath, std::string &real_fpath);
 	bool GetMappedFileNameWrapper(LPVOID hMod, std::string &fpath);
 	bool SearchPathWrapper(const char* fname, const char* spath, const char* ext, std::string &fpath);
@@ -224,9 +224,7 @@ bool FPRoutines::UnredirectWow64FsPath(const char* fpath, std::string &real_fpat
 #endif
 }
 
-//TODO:
-//Change routine in SnK to similar ans make all routines not default intialize w32_path to ""
-bool FPRoutines::KernelToWin32Path(wchar_t* krn_fpath, std::wstring &w32_fpath, USHORT krn_ulen, USHORT krn_umaxlen)
+bool FPRoutines::KernelToWin32Path(const wchar_t* krn_fpath, std::wstring &w32_fpath, USHORT krn_ulen, USHORT krn_umaxlen)
 {
 	//GetFileAttributesW is dynamically loaded along with NT function so to use the same code on Win 9x
 	if (!krn_ulen||fnGetFileAttributesW||!fnNtCreateFile||!fnNtQueryObject||!fnNtQueryInformationFile)
@@ -250,7 +248,7 @@ bool FPRoutines::KernelToWin32Path(wchar_t* krn_fpath, std::wstring &w32_fpath, 
 
 	HANDLE hFile;
 	OBJECT_ATTRIBUTES objAttribs;	
-	UNICODE_STRING ustr_fpath={krn_ulen, krn_umaxlen, krn_fpath};
+	UNICODE_STRING ustr_fpath={krn_ulen, krn_umaxlen, const_cast<wchar_t*>(krn_fpath)};
 	IO_STATUS_BLOCK ioStatusBlock;
 	
 	InitializeObjectAttributes(&objAttribs, &ustr_fpath, OBJ_CASE_INSENSITIVE, NULL, NULL);
