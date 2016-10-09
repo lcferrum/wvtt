@@ -4,6 +4,7 @@ pRtlGetVersion fnRtlGetVersion=NULL;
 pGetNativeSystemInfo fnGetNativeSystemInfo=NULL;
 pIsWow64Process fnIsWow64Process=NULL;
 pGetProductInfo fnGetProductInfo=NULL;
+pGetVersionExA fnGetVersionExA=NULL;
 pNtCreateFile fnNtCreateFile=NULL;
 pNtQueryObject fnNtQueryObject=NULL;
 pGetSystemWow64DirectoryW fnGetSystemWow64DirectoryW=NULL;
@@ -41,7 +42,7 @@ void Externs::LoadFunctions()
 {
 	hNtDll=LoadLibrary("ntdll.dll");
 	hKernel32=LoadLibrary("kernel32.dll");
-	
+
 	if (hNtDll) {
 		fnRtlGetVersion=(pRtlGetVersion)GetProcAddress(hNtDll, "RtlGetVersion");
 		fnNtCreateFile=(pNtCreateFile)GetProcAddress(hNtDll, "NtCreateFile");
@@ -58,6 +59,7 @@ void Externs::LoadFunctions()
 		fnGetSystemWow64DirectoryW=(pGetSystemWow64DirectoryW)GetProcAddress(hKernel32, "GetSystemWow64DirectoryW");
 		fnGetNativeSystemInfo=(pGetNativeSystemInfo)GetProcAddress(hKernel32, "GetNativeSystemInfo");
 		fnGetProductInfo=(pGetProductInfo)GetProcAddress(hKernel32, "GetProductInfo");
+		fnGetVersionExA=(pGetVersionExA)GetProcAddress(hKernel32, "GetVersionExA");
 		fnGetFileAttributesW=(pGetFileAttributesW)GetProcAddress(hKernel32, "GetFileAttributesW");
 	}
 }

@@ -11,6 +11,7 @@ extern pRtlGetVersion fnRtlGetVersion;
 extern pGetNativeSystemInfo fnGetNativeSystemInfo;
 extern pIsWow64Process fnIsWow64Process;
 extern pGetProductInfo fnGetProductInfo;
+extern pGetVersionExA fnGetVersionExA;
 extern pwine_get_version fnwine_get_version;
 
 typedef struct _LANGANDCODEPAGE {
@@ -21,19 +22,21 @@ typedef struct _LANGANDCODEPAGE {
 //Defines not found in MinGW's windows.h/winnt.h:
 #define SM_WEPOS			0x2003
 #define SM_FUNDAMENTALS		0x2004
+#define VER_PLATFORM_WIN32_CE	3
 
 //std::cout treats char as, obvously, char and prints it as such - not it's numerical value
 //If numerical value is needed, instead of static cast to ULONG_PTR unary addition operator can be used to force printing numerical value
 //Also, these defines only work correctly with specific std::ios::fmtflags and std::ios::fill (see below in main)
-#define COUT_DEC(dec_int)				+dec_int
-#define COUT_FIX(dec_int, dec_width)	std::setw(dec_width)<<+dec_int
-#define COUT_HEX(hex_int, hex_width)	"0x"<<std::hex<<std::setw(hex_width)<<+hex_int<<std::dec
-#define COUT_BOOL(bool_val)				(bool_val?"TRUE":"FALSE")
+#define COUT_DEC(dec_int)				+(dec_int)
+#define COUT_FIX(dec_int, dec_width)	std::setw(dec_width)<<+(dec_int)
+#define COUT_HEX(hex_int, hex_width)	"0x"<<std::hex<<std::setw(hex_width)<<+(hex_int)<<std::dec
+#define COUT_BOOL(bool_val)				((bool_val)?"TRUE":"FALSE")
 
-LabeledValues PlatfromIds(LABELED_VALUES_ARG(VER_PLATFORM_WIN32s, VER_PLATFORM_WIN32_WINDOWS, VER_PLATFORM_WIN32_NT));
+LabeledValues PlatfromIds(LABELED_VALUES_ARG(VER_PLATFORM_WIN32s, VER_PLATFORM_WIN32_WINDOWS, VER_PLATFORM_WIN32_NT, VER_PLATFORM_WIN32_CE));
 LabeledValues SuiteMasks(LABELED_VALUES_ARG(VER_WORKSTATION_NT, VER_SERVER_NT, VER_SUITE_SMALLBUSINESS, VER_SUITE_ENTERPRISE, VER_SUITE_BACKOFFICE, VER_SUITE_COMMUNICATIONS, VER_SUITE_TERMINAL, VER_SUITE_SMALLBUSINESS_RESTRICTED, VER_SUITE_EMBEDDEDNT, VER_SUITE_DATACENTER, VER_SUITE_SINGLEUSERTS, VER_SUITE_PERSONAL, VER_SUITE_BLADE, VER_SUITE_EMBEDDED_RESTRICTED, VER_SUITE_SECURITY_APPLIANCE, VER_SUITE_STORAGE_SERVER, VER_SUITE_COMPUTE_SERVER, VER_SUITE_WH_SERVER));
 LabeledValues ProductTypes(LABELED_VALUES_ARG(VER_NT_WORKSTATION, VER_NT_DOMAIN_CONTROLLER, VER_NT_SERVER));
-LabeledValues SystemMetrics(LABELED_VALUES_ARG(SM_FUNDAMENTALS, SM_WEPOS, SM_DEBUG, SM_PENWINDOWS, SM_DBCSENABLED, SM_IMMENABLED, SM_SLOWMACHINE, SM_TABLETPC, SM_MEDIACENTER, SM_STARTER, SM_SERVERR2));
+//LabeledValues SystemMetrics(LABELED_VALUES_ARG(SM_FUNDAMENTALS, SM_WEPOS, SM_DEBUG, SM_PENWINDOWS, SM_DBCSENABLED, SM_IMMENABLED, SM_SLOWMACHINE, SM_TABLETPC, SM_MEDIACENTER, SM_STARTER, SM_SERVERR2));
+LabeledValues SystemMetrics(LABELED_VALUES_ARG(SM_DEBUG, SM_PENWINDOWS, SM_DBCSENABLED, SM_IMMENABLED, SM_SLOWMACHINE, SM_FUNDAMENTALS, SM_WEPOS, SM_TABLETPC, SM_MEDIACENTER, SM_STARTER, SM_SERVERR2));
 LabeledValues ProcessorArchitectures(LABELED_VALUES_ARG(PROCESSOR_ARCHITECTURE_INTEL, PROCESSOR_ARCHITECTURE_MIPS, PROCESSOR_ARCHITECTURE_ALPHA, PROCESSOR_ARCHITECTURE_PPC, PROCESSOR_ARCHITECTURE_SHX, PROCESSOR_ARCHITECTURE_ARM, PROCESSOR_ARCHITECTURE_IA64, PROCESSOR_ARCHITECTURE_ALPHA64, PROCESSOR_ARCHITECTURE_MSIL, PROCESSOR_ARCHITECTURE_AMD64, PROCESSOR_ARCHITECTURE_IA32_ON_WIN64, PROCESSOR_ARCHITECTURE_NEUTRAL, PROCESSOR_ARCHITECTURE_UNKNOWN));
 LabeledValues ProductInfoTypes(LABELED_VALUES_ARG(PRODUCT_UNDEFINED, PRODUCT_ULTIMATE, PRODUCT_HOME_BASIC, PRODUCT_HOME_PREMIUM, PRODUCT_ENTERPRISE, PRODUCT_HOME_BASIC_N, PRODUCT_BUSINESS, PRODUCT_STANDARD_SERVER, PRODUCT_DATACENTER_SERVER, PRODUCT_SMALLBUSINESS_SERVER, PRODUCT_ENTERPRISE_SERVER, PRODUCT_STARTER, PRODUCT_DATACENTER_SERVER_CORE, PRODUCT_STANDARD_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_IA64, PRODUCT_BUSINESS_N, PRODUCT_WEB_SERVER, PRODUCT_CLUSTER_SERVER, PRODUCT_HOME_SERVER, PRODUCT_STORAGE_EXPRESS_SERVER, PRODUCT_STORAGE_STANDARD_SERVER, PRODUCT_STORAGE_WORKGROUP_SERVER, PRODUCT_STORAGE_ENTERPRISE_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM, PRODUCT_UNLICENSED, PRODUCT_HOME_PREMIUM_N, PRODUCT_ENTERPRISE_N, PRODUCT_ULTIMATE_N, PRODUCT_WEB_SERVER_CORE, PRODUCT_MEDIUMBUSINESS_SERVER_MANAGEMENT, PRODUCT_MEDIUMBUSINESS_SERVER_SECURITY, PRODUCT_MEDIUMBUSINESS_SERVER_MESSAGING, PRODUCT_SERVER_FOUNDATION, PRODUCT_HOME_PREMIUM_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS_V, PRODUCT_STANDARD_SERVER_V, PRODUCT_DATACENTER_SERVER_V, PRODUCT_ENTERPRISE_SERVER_V, PRODUCT_DATACENTER_SERVER_CORE_V, PRODUCT_STANDARD_SERVER_CORE_V, PRODUCT_ENTERPRISE_SERVER_CORE_V, PRODUCT_HYPERV, PRODUCT_STORAGE_EXPRESS_SERVER_CORE, PRODUCT_STORAGE_STANDARD_SERVER_CORE, PRODUCT_STORAGE_WORKGROUP_SERVER_CORE, PRODUCT_STORAGE_ENTERPRISE_SERVER_CORE, PRODUCT_STARTER_N, PRODUCT_PROFESSIONAL, PRODUCT_PROFESSIONAL_N, PRODUCT_SB_SOLUTION_SERVER, PRODUCT_SERVER_FOR_SB_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS_CORE, PRODUCT_SB_SOLUTION_SERVER_EM, PRODUCT_SERVER_FOR_SB_SOLUTIONS_EM, PRODUCT_SOLUTION_EMBEDDEDSERVER, PRODUCT_SOLUTION_EMBEDDEDSERVER_CORE, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM_CORE, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMT, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDL, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMTSVC, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDLSVC, PRODUCT_CLUSTER_SERVER_V, PRODUCT_EMBEDDED, PRODUCT_STARTER_E, PRODUCT_HOME_BASIC_E, PRODUCT_HOME_PREMIUM_E, PRODUCT_PROFESSIONAL_E, PRODUCT_ENTERPRISE_E, PRODUCT_ULTIMATE_E));
 BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
@@ -105,14 +108,32 @@ int main(int argc, char* argv[])
 			std::cout<<"\twReserved = "<<COUT_HEX(osvi_ex.wReserved, 2)<<std::endl;
 		}
 	} else {
-		std::cout<<"RtlGetVersion and GetVersionEx failed!"<<std::endl;
+		DWORD dwVersion=GetVersion();
+		std::cout<<"GetVersion = "<<COUT_HEX(dwVersion, 8)<<std::endl;
+		if (dwVersion) {
+			std::cout<<"\tMajorVersion = "<<COUT_DEC(LOBYTE(LOWORD(dwVersion)))<<std::endl;
+			std::cout<<"\tMinorVersion = "<<COUT_DEC(HIBYTE(LOWORD(dwVersion)))<<std::endl;
+			//N.B.:
+			//Code below is actual for Win32 API
+			//On Win16 API HIWORD contains MS-DOS version, major number in LOBYTE and minor number in HIBYTE
+			std::cout<<"\tIsNT = "<<COUT_BOOL((dwVersion&0x80000000)==0)<<std::endl;
+			std::cout<<"\tBldNumOrRes = "<<COUT_DEC(HIWORD(dwVersion)&~0x8000)<<std::endl;	//This thing is reserved on Win 9x and build number on NT and Win32s
+		}
 	}
-	
+
 	std::cout<<std::endl;
-	
+
 	std::cout<<"GetSystemMetrics:"<<std::endl;
-	if (!SystemMetrics.Matches([](const std::string& label, DWORD value, size_t idx){
-		if (GetSystemMetrics(value)) {
+	if (!SystemMetrics.Matches([](const std::string& label, DWORD value, size_t idx) {
+		//All the system metrics reside in aiSysMet member of SERVERINFO
+		//SERVERINFO is a global internal system structure common for all the processes
+		//aiSysMet is an int array of fixed length - nIndex passed to GetSystemMetrics actually is an index to this array
+		//So passed nIndex can be potentially out of bounds and lead to memory access violation
+		//NT 4.0's (and onwards) version of GetSystemMetrics actually checks that passed index is valid (i.e. within array)
+		//But on NT 3.x GetSystemMetrics just access the array with whatever index passed
+		//Some small diviations from maximum index won't do many harm (aside from returning incorrect result) because they land somewhere within SERVERINFO struct (and it's pretty big)
+		//But large deviations like 1000-th element behind real maximum will surely get you in trouble
+		if (GetSystemMetrics(value)) {	//Big numbers like over 0x2000 (e.g. SM_FUNDAMENTALS) causes this call to CTD on NT 3.x - use SEH?
 			std::cout<<"\t"<<label<<std::endl;
 			return true;
 		} else
@@ -211,6 +232,7 @@ int main(int argc, char* argv[])
 
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex)
 {
+	//return false;
 	if (fnRtlGetVersion) {
 		RTL_OSVERSIONINFOEXW rtl_osvi_ex={sizeof(RTL_OSVERSIONINFOEXW)};
 		if (NT_SUCCESS(fnRtlGetVersion((PRTL_OSVERSIONINFOW)&rtl_osvi_ex))||(rtl_osvi_ex.dwOSVersionInfoSize=sizeof(RTL_OSVERSIONINFOW), NT_SUCCESS(fnRtlGetVersion((PRTL_OSVERSIONINFOW)&rtl_osvi_ex)))) {
@@ -234,16 +256,18 @@ bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex)
 				return true;
 			}
 		}
+	} else if (fnGetVersionExA) {
+		osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFOEX);
+		if (fnGetVersionExA((LPOSVERSIONINFO)&osvi_ex)) {
+			std::cout<<"GetVersionEx.OSVERSIONINFOEX:"<<std::endl;
+			return true;
+		} else if ((osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFO), fnGetVersionExA((LPOSVERSIONINFO)&osvi_ex))) {
+			std::cout<<"GetVersionEx.OSVERSIONINFO:"<<std::endl;
+			return true;
+		} else
+			return false;
 	}
-	osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFOEX);
-	if (GetVersionEx((LPOSVERSIONINFO)&osvi_ex)) {
-		std::cout<<"GetVersionEx.OSVERSIONINFOEX:"<<std::endl;
-		return true;
-	} else if ((osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFO), GetVersionEx((LPOSVERSIONINFO)&osvi_ex))) {
-		std::cout<<"GetVersionEx.OSVERSIONINFO:"<<std::endl;
-		return true;
-	} else
-		return false;
+	return false;
 }
 
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value) 
@@ -328,10 +352,22 @@ void PrintFileInformation(const char* query_path)
 					char *value;
 					UINT valuelen;
 					std::stringstream qstr;
-					qstr<<std::nouppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
+					qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
 					if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &valuelen)) {
 						std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
 						got_info=true;
+					} else {
+						//Wow, we got translation but failed at getting string for this translation?
+						//And it was just simple ProductVersion
+						//The thing is if we are on obsolete as hell NT 3.x - LANGANDCODEPAGE's wLanguage and wCodePage fields may be swapped in here
+						//So let's try the other way around
+						qstr.str(std::string());
+						qstr.clear();
+						qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\ProductVersion";
+						if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &valuelen)) {
+							std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
+							got_info=true;
+						}
 					}
 				}
 			}

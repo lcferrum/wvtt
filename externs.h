@@ -36,6 +36,7 @@ typedef UINT (WINAPI *pGetSystemWow64DirectoryW)(LPWSTR lpBuffer, UINT uSize);
 typedef NTSTATUS (WINAPI *pNtOpenSymbolicLinkObject)(PHANDLE LinkHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes);
 typedef NTSTATUS (WINAPI *pNtQuerySymbolicLinkObject)(HANDLE LinkHandle, PUNICODE_STRING LinkTarget, PULONG ReturnedLength);
 typedef NTSTATUS (WINAPI *pNtQueryInformationFile)(HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, ULONG Length, FILE_INFORMATION_CLASS FileInformationClass);
+typedef BOOL (WINAPI *pGetVersionExA)(LPOSVERSIONINFOA lpVersionInfo);
 enum MEMORY_INFORMATION_CLASS {MemorySectionName=0x2};
 typedef NTSTATUS (WINAPI *pNtQueryVirtualMemory)(HANDLE ProcessHandle, PVOID BaseAddress, MEMORY_INFORMATION_CLASS MemoryInformationClass, PVOID MemoryInformation, SIZE_T MemoryInformationLength, PSIZE_T ReturnLength);
 typedef DWORD (WINAPI *pGetFileAttributesW)(LPCWSTR lpFileName);

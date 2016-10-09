@@ -21,8 +21,8 @@ endif
 RM=rm -f
 UPX=upx
 CFLAGS=-std=c++11 -Wno-write-strings -D_WIN32_WINNT=0x0600 -DNOMINMAX
-#LDFLAGS=-static-libgcc -static-libstdc++ -lversion -s
-LDFLAGS=-static-libgcc -static-libstdc++ -lversion -g
+#LDFLAGS=-static-libgcc -static-libstdc++ -lversion -Wl,--subsystem,console:3.10 -s
+LDFLAGS=-static-libgcc -static-libstdc++ -lversion -Wl,--subsystem,console:3.10 -s
 UPSTREAM_INC=/c/cygwin/usr/i686-w64-mingw32/sys-root/mingw/include/
 SRC=vt.cpp externs.cpp fp_routines.cpp
 OBJ=$(patsubst %.S,%.o,$(patsubst %.cpp,%.o,$(patsubst %.rc,%.o,$(SRC))))
@@ -38,6 +38,7 @@ endif
 # Extra options for outdated clang++/g++ with upstream includes to generate binaries compatible with Win 9x/NT4
 # i386 is minimum system requirement for Windows 95 (MinGW 4.7.2 default arch)
 # i486 is minimum system requirement for Windows NT4
+# i386 is minimum system requirement for Windows NT3.1
 # It's assumed that g++ (MinGW) version is 4.7.2, clang++ (LLVM) version is 3.6.2 and includes are from MinGW-w64 4.9.2
 ifeq ($(CC),clang++)
 	INC=-I$(UPSTREAM_INC)
