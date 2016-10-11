@@ -125,14 +125,69 @@ int main(int argc, char* argv[])
 
 	std::cout<<"GetSystemMetrics:"<<std::endl;
 	if (!SystemMetrics.Matches([](const std::string& label, DWORD value, size_t idx) {
-		//All the system metrics reside in aiSysMet member of SERVERINFO
+/**
+SM_CMETRICS (76) - max for NT4
+SM_CMETRICS (43) - max for win16/wow16
+
+SERVERINFO + 0x01AC = metric array (aiSysMet) on NT31 (GetSystemMetrics)
+SERVERINFO + 0x025C = color array (argbSystem) on NT31 (GetSysColor)
+
+So aiSysMet array spans 176 bytes on NT31, which equals to aiSysMet[44]
+SM_SECURE is 44
+Modern MSDN: This system metric should be ignored; it always returns 0
+MSDN circa. 1999: TRUE if security is present; FALSE otherwise.
+
+SERVERINFO + 0x01AC = metric array (aiSysMet) on NT31SP3
+SERVERINFO + 0x025C = color array (argbSystem) on NT31SP3
+
+So aiSysMet array spans 176 bytes on NT31SP3, which equals to aiSysMet[44]
+
+SERVERINFO + 0x0180 = metric array (aiSysMet) on NT35
+SERVERINFO + 0x029C = color array (argbSystem) on NT35
+
+So aiSysMet array spans 284 bytes on NT35, which equals to aiSysMet[71]
+SM_CXMENUCHECK is 71
+Modern MSDN: The width of the default menu check-mark bitmap, in pixels.
+MSDN circa. 1999: Dimensions, in pixels, of the default menu check-mark bitmap.
+
+SERVERINFO + 0x0180 = metric array (aiSysMet) on NT35SP3
+SERVERINFO + 0x029C = color array (argbSystem) on NT35SP3
+
+So aiSysMet array spans 284 bytes on NT35SP3, which equals to aiSysMet[71]
+
+SERVERINFO + 0x0180 = metric array (aiSysMet) on NT351
+SERVERINFO + 0x02AC = color array (argbSystem) on NT351
+Range is checked
+
+So aiSysMet array spans 300 bytes on NT351, which equals to aiSysMet[75]
+
+SERVERINFO + 0x0180 = metric array (aiSysMet) on NT351SP5
+SERVERINFO + 0x02AC = color array (argbSystem) on NT351SP5
+Range is checked
+
+So aiSysMet array spans 300 bytes on NT351SP5, which equals to aiSysMet[75]
+
+SERVERINFO + 0x0170 = metric array (aiSysMet) on NT4
+SERVERINFO + 0x02A0 = color array (argbSystem) on NT4
+Range is checked
+
+So aiSysMet array spans 304 bytes on NT4, which equals to aiSysMet[76]
+
+					NUMNAMES	ORD				FUN		RVA
+GetSysColor			205			1BFC2	CD CC	1B558	223C3	1210f
+GetSystemMetrics	207			1BFC6	CF CE	1B560	21F4B	11C97
+
+.text RVA = 010300	PHYS = 4C ?????
+**/
+		//All the system metrics reside in aiSysMet member of SERVERINFO (_gpsi)
 		//SERVERINFO is a global internal system structure common for all the processes
 		//aiSysMet is an int array of fixed length - nIndex passed to GetSystemMetrics actually is an index to this array
 		//So passed nIndex can be potentially out of bounds and lead to memory access violation
-		//NT 4.0's (and onwards) version of GetSystemMetrics actually checks that passed index is valid (i.e. within array)
-		//But on NT 3.x GetSystemMetrics just access the array with whatever index passed
+		//NT 3.51's (and onwards) version of GetSystemMetrics actually checks that passed index is valid (i.e. within array)
+		//But on NT 3.1 and 3.5 GetSystemMetrics just access the array with whatever index passed
 		//Some small diviations from maximum index won't do many harm (aside from returning incorrect result) because they land somewhere within SERVERINFO struct (and it's pretty big)
 		//But large deviations like 1000-th element behind real maximum will surely get you in trouble
+		//Real maximum GetSystemMetrics index is 43 for NT 3.1 and 70 for NT 3.5 - everything greater is out of bounds
 		if (GetSystemMetrics(value)) {	//Big numbers like over 0x2000 (e.g. SM_FUNDAMENTALS) causes this call to CTD on NT 3.x - use SEH?
 			std::cout<<"\t"<<label<<std::endl;
 			return true;
