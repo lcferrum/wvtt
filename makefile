@@ -20,13 +20,18 @@ endif
 # Common section
 RM=rm -f
 UPX=upx
-CFLAGS=-std=c++11 -Wno-write-strings -D_WIN32_WINNT=0x0600 -DNOMINMAX
-#LDFLAGS=-static-libgcc -static-libstdc++ -lversion -Wl,--subsystem,console:3.10 -s
-LDFLAGS=-static-libgcc -static-libstdc++ -lversion -Wl,--subsystem,console:3.10 -s
+CFLAGS=-std=c++11 -Wno-write-strings -D_WIN32_WINNT=0x0600 -DNOMINMAX $(NT3)
+LDFLAGS=-static-libgcc -static-libstdc++ -lversion -Wl,--enable-stdcall-fixup -s
 UPSTREAM_INC=/c/cygwin/usr/i686-w64-mingw32/sys-root/mingw/include/
-SRC=vt.cpp externs.cpp fp_routines.cpp
+SRC=vt.cpp externs.cpp fp_routines.cpp asm_patches.S
 OBJ=$(patsubst %.S,%.o,$(patsubst %.cpp,%.o,$(patsubst %.rc,%.o,$(SRC))))
 TARGET=vt.exe
+
+# WinNT3.x specific common section
+ifdef NT3
+	LDFLAGS+=-Wl,--subsystem,console:3.10
+	override NT3:=-DNT3=$(NT3)
+endif
 
 # Compiler specific section
 ifeq ($(CC),x86_64-w64-mingw32-g++)
