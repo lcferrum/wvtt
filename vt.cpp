@@ -24,9 +24,10 @@ typedef struct _LANGANDCODEPAGE {
 #define SM_FUNDAMENTALS		0x2004
 #define VER_PLATFORM_WIN32_CE	3
 
-//std::cout treats char as, obvously, char and prints it as such - not it's numerical value
+//std::cout treats char as, obviously, char and prints it as such - not it's numerical value
 //If numerical value is needed, instead of static cast to ULONG_PTR unary addition operator can be used to force printing numerical value
 //Also, these defines only work correctly with specific std::ios::fmtflags and std::ios::fill (see below in main)
+//Dec_width and hex_width is in chars
 #define COUT_DEC(dec_int)				+(dec_int)
 #define COUT_FIX(dec_int, dec_width)	std::setw(dec_width)<<+(dec_int)
 #define COUT_HEX(hex_int, hex_width)	"0x"<<std::hex<<std::setw(hex_width)<<+(hex_int)<<std::dec
@@ -44,16 +45,23 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
 void PrintFileInformation(const char* fpath);
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
 
-#if !defined(_WIN64)&&defined(NT3)
-extern "C" bool __stdcall GetSystemMetricsSehWrapper(int nIndex, int* result);
-#endif
-
 #ifdef __clang__
 //Obscure clang++ bug - it reports "multiple definition" of std::setfill() and __gnu_cxx::operator==() when statically linking with libstdc++
 //Observed on LLVM 3.6.2 with MinGW 4.7.2
 //This is a fix for the bug
 extern template std::_Setfill<char> std::setfill(char);													//caused by use of std::setfill(char)
 extern template bool __gnu_cxx::operator==(const std::string::iterator&, const std::string::iterator&);	//caused by use of std::remove_if(std::string::iterator, std::string::iterator, bool (*)(char))
+#endif
+
+#if !defined(_WIN64)&&defined(NT3)
+extern "C" bool __stdcall GetSystemMetricsSehWrapper(int nIndex, int* result);
+typedef void (CDECL *p__set_app_type)(int at);
+
+extern "C" void __cdecl Msvcrt20SetAppType(int at)
+{
+	if (p__set_app_type fn__set_app_type=(p__set_app_type)GetProcAddress(GetModuleHandle("msvcrt.dll"), "__set_app_type"))
+		fn__set_app_type(at);
+}
 #endif
 
 int main(int argc, char* argv[])
@@ -158,7 +166,7 @@ int main(int argc, char* argv[])
 			return false;
 #endif
 	}))
-		std::cout<<"\tNO METRICS FOUND"<<std::endl;
+		std::cout<<"\tMETRICS NOT SET"<<std::endl;
 	
 	std::cout<<std::endl;
 	
@@ -333,7 +341,7 @@ void PrintFileInformation(const char* query_path)
 	//LE files have ModuleVersion field in the header but it's not used in any of system VXDs
 	
 	//"File not found" is also a result - absence/presence of specific files also helps in detecting OS version (ex: USB supplement)
-	//Also see comments for PathViaLoadLibrary to find out how queried file is searched
+	//Also see comments for FPRoutines::GetSystemFilePath to find out how queried file is searched
 	
 	//Most Windows files that are relevant to OS detection are system DLLs
 	//GetSystemFilePath uses special set of routines to find full file path (from just relative file name) to such files

@@ -74,12 +74,11 @@ seh_handler:
 rtl_unwind_ret:
 	movl 0x08(%esp), %esp			/* Make EXCEPTION_REGISTRATION pointer current stack pointer (effectively continuing GetSystemMetricsSehWrapper execution) */
 	popl %fs:0						/* Restore old exception handler by restoring pointer to previous EXCEPTION_REGISTRATION struct */
-	addl $4, %esp					/* Dismiss EXCEPTION_REGISTRATION.handler */
-	movl 0x00(%esp), %edi			/* Restoring EBX, ESI, EDI and EBP from SAVED_REGS sruct that is right behind EXCEPTION_REGISTRATION */
-	movl 0x04(%esp), %esi
-	movl 0x08(%esp), %ebx
-	movl 0x0C(%esp), %ebp
-	addl $16, %esp					/* Dismissing SAVED_REGS and now all what is left on the stack are original function arguments */
+	movl 0x04(%esp), %edi			/* Restoring EBX, ESI, EDI and EBP from SAVED_REGS sruct that is right behind EXCEPTION_REGISTRATION */
+	movl 0x08(%esp), %esi
+	movl 0x0C(%esp), %ebx
+	movl 0x10(%esp), %ebp
+	addl $20, %esp					/* Dismissing EXCEPTION_REGISTRATION.handler and SAVED_REGS - now all what is left on the stack are original function arguments */
 	movl $0, %eax					/* Return false (from GetSystemMetricsSehWrapper) */
 	ret $8							/* Clean up call stack (8 bytes) conforming to STDCALL convention */	
 not_handled:

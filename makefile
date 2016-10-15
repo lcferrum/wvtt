@@ -20,6 +20,10 @@ endif
 # Common section
 RM=rm -f
 UPX=upx
+OBJCOPY=objcopy --only-keep-debug
+STRIP=strip -s
+# TODO: COMPAT is compatibility tool - patcher that makes binary compatible with obsolete shit
+COMPAT=echo
 CFLAGS=-std=c++11 -Wno-write-strings -D_WIN32_WINNT=0x0600 -DNOMINMAX $(NT3)
 LDFLAGS=-static-libgcc -static-libstdc++ -lversion -Wl,--enable-stdcall-fixup -s
 UPSTREAM_INC=/c/cygwin/usr/i686-w64-mingw32/sys-root/mingw/include/
@@ -29,7 +33,8 @@ TARGET=vt.exe
 
 # WinNT3.x specific common section
 ifdef NT3
-	LDFLAGS+=-Wl,--subsystem,console:3.10
+#	override LDFLAGS:=$(filter-out -s,$(LDFLAGS)) -g -Wl,--subsystem,console:3.10 -Wl,--major-os-version,1 -Wl,--minor-os-version,0
+	override LDFLAGS:=$(filter-out -s,$(LDFLAGS)) -g -Wl,--subsystem,console:3.10
 	override NT3:=-DNT3=$(NT3)
 endif
 
@@ -63,6 +68,11 @@ all: $(TARGET)
 
 $(TARGET): $(OBJ) 
 	$(CC) -o $@ $(OBJ) $(LDFLAGS)
+ifdef NT3
+	$(OBJCOPY) $(TARGET) $(TARGET).debug
+	$(STRIP) $(TARGET)
+	$(COMPAT) $(TARGET) $(TARGET).debug
+endif
 	
 %.o: %.cpp
 	$(CC) -c -o $@ $< $(CFLAGS) $(INC)

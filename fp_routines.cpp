@@ -421,7 +421,7 @@ bool FPRoutines::GetSFP_SearchPathForDLL(const char* fname, std::string &fpath)
 bool FPRoutines::GetSFP_SearchPathForVXD(const char* fname, std::string &fpath)
 {
 	//This SearchPath call is specifically tailored to search for Win 9x VXDs
-	//It searches directories from where system and most 3rd-party static VXDs are loaded
+	//It searches directories from where system and some of the 3rd-party static VXDs are loaded
 	//Of course 3rd-party VXD can be placed anywhere in the system
 	//But if they are loaded just by name (and not full path) they reside in these directories
 	//Querying registry and system.ini to get full paths of 3rd-party VXDs is out-of-scope for this function
