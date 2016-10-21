@@ -42,7 +42,7 @@ LabeledValues ProductInfoTypes(LABELED_VALUES_ARG(PRODUCT_UNDEFINED, PRODUCT_ULT
 BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
 
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
-void PrintFileInformation(const char* fpath);
+void PrintFileInformation(const char* query_path, const char* sfi_item);
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
 
 #ifdef __clang__
@@ -53,10 +53,12 @@ extern template std::_Setfill<char> std::setfill(char);													//caused by 
 extern template bool __gnu_cxx::operator==(const std::string::iterator&, const std::string::iterator&);	//caused by use of std::remove_if(std::string::iterator, std::string::iterator, bool (*)(char))
 #endif
 
-#if !defined(_WIN64)&&defined(NT3)
+#ifdef NT3
+#ifndef _WIN64
 extern "C" bool __stdcall GetSystemMetricsSehWrapper(int nIndex, int* result);
-typedef void (CDECL *p__set_app_type)(int at);
+#endif
 
+typedef void (CDECL *p__set_app_type)(int at);
 extern "C" void __cdecl Msvcrt20SetAppType(int at)
 {
 	if (p__set_app_type fn__set_app_type=(p__set_app_type)GetProcAddress(GetModuleHandle("msvcrt.dll"), "__set_app_type"))
@@ -241,9 +243,10 @@ int main(int argc, char* argv[])
 	
 	std::cout<<std::endl;
 	
-	PrintFileInformation("KERNEL32.DLL");
-	PrintFileInformation("USER.EXE");
-	PrintFileInformation("NTKERN.VXD");
+	PrintFileInformation("KERNEL32.DLL", "ProductVersion");
+	PrintFileInformation("USER.EXE", "ProductVersion");
+	PrintFileInformation("NTKERN.VXD", "ProductVersion");
+	PrintFileInformation("W32SYS.DLL", "FileVersion");
 	
 	std::cout<<std::endl;
 	
@@ -259,7 +262,6 @@ int main(int argc, char* argv[])
 
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex)
 {
-	//return false;
 	if (fnRtlGetVersion) {
 		RTL_OSVERSIONINFOEXW rtl_osvi_ex={sizeof(RTL_OSVERSIONINFOEXW)};
 		if (NT_SUCCESS(fnRtlGetVersion((PRTL_OSVERSIONINFOW)&rtl_osvi_ex))||(rtl_osvi_ex.dwOSVersionInfoSize=sizeof(RTL_OSVERSIONINFOW), NT_SUCCESS(fnRtlGetVersion((PRTL_OSVERSIONINFOW)&rtl_osvi_ex)))) {
@@ -319,7 +321,7 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 		std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<" - error while opening!"<<std::endl;
 }
 
-void PrintFileInformation(const char* query_path) 
+void PrintFileInformation(const char* query_path, const char* sfi_item) 
 {
 	//Some Windows system files bear information that can help in detecting Windows version
 	//Most of these files are PE DLLs but some are also LE VXDs
@@ -327,8 +329,8 @@ void PrintFileInformation(const char* query_path)
 	//In reality it's better to check StringFileInfo.ProductVersion of VERSIONINFO resource and file's modified date/time
 	//ProductVersion holds version info more related to OS version than FILEVERSION that holds actual file version (TODO: example for Win ME and NT4)
 	//N.B.: 
-	//File properties dialog on Win 9x showed StringFileInfo.FileVersion in it's header (not actual VS_FIXEDFILEINFO.FILEVERSION)
-	//On NT systems (up to and including XP) header showed VS_FIXEDFILEINFO.FILEVERSION instead
+	//File properties dialog on Win 9x, Win 3.x and Win NT3.x showed StringFileInfo.FileVersion in it's header (not actual VS_FIXEDFILEINFO.FILEVERSION)
+	//On NT systems (starting from NT4, up to and including XP) header showed VS_FIXEDFILEINFO.FILEVERSION instead
 	//Also these versions of dialog allowed to view any other (even custom) StringFileInfo items
 	//Starting from Vista only limited number of VERSIONINFO items is shown
 	//And only two of them is about versioning: VS_FIXEDFILEINFO.FILEVERSION (but not StringFileInfo.FileVersion) and StringFileInfo.ProductVersion
@@ -373,31 +375,33 @@ void PrintFileInformation(const char* query_path)
 				//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use VERSIONINFO from this file instead of original one
 				//So information can differ between what Explorer show (actual file VERSIONINFO) and what GetFileVersionInfo retreives
 				LANGANDCODEPAGE *plcp;
-				UINT lcplen;
-				if (VerQueryValue((LPVOID)retbuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &lcplen)&&lcplen>=sizeof(LANGANDCODEPAGE)) {
-					//We are interested only in first translation - most system files have only one VERSIONINFO translation anyway
-					char *value;
-					UINT valuelen;
-					std::stringstream qstr;
-					qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
-					if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &valuelen)) {
+				LANGANDCODEPAGE def_lcp={0x0409, 0x0};
+				UINT vqvlen;
+				if (!VerQueryValue((LPVOID)retbuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &vqvlen)) {
+					//If not translations found - assume default translation
+					plcp=&def_lcp;
+				}
+				//We are interested only in first translation - most system files have only one VERSIONINFO translation anyway
+				char *value;
+				std::stringstream qstr;
+				qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\"<<sfi_item;
+				if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
+					std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
+					got_info=true;
+#ifdef NT3
+				} else {
+					//Wow, we got translation but failed at getting string for this translation?
+					//And it was just simple ProductVersion
+					//The thing is if we are on obsolete as hell NT 3.1 - LANGANDCODEPAGE's wLanguage and wCodePage fields may be swapped in here
+					//So let's try the other way around
+					qstr.str(std::string());
+					qstr.clear();
+					qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\"<<sfi_item;
+					if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
 						std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
 						got_info=true;
-#ifdef NT3
-					} else {
-						//Wow, we got translation but failed at getting string for this translation?
-						//And it was just simple ProductVersion
-						//The thing is if we are on obsolete as hell NT 3.1 - LANGANDCODEPAGE's wLanguage and wCodePage fields may be swapped in here
-						//So let's try the other way around
-						qstr.str(std::string());
-						qstr.clear();
-						qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\ProductVersion";
-						if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &valuelen)) {
-							std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
-							got_info=true;
-						}
-#endif
 					}
+#endif
 				}
 			}
 		}
