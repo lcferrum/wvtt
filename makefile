@@ -25,16 +25,15 @@ STRIP=strip -s
 # TODO: COMPAT is compatibility tool - patcher that makes binary compatible with obsolete shit
 COMPAT=echo
 CFLAGS=-std=c++11 -Wno-write-strings -D_WIN32_WINNT=0x0600 -DNOMINMAX $(NT3)
-LDFLAGS=-static-libgcc -static-libstdc++ -lversion -Wl,--enable-stdcall-fixup -s
+LDFLAGS=-static-libgcc -static-libstdc++ -lversion -Wl,--enable-stdcall-fixup -O2 -s
 UPSTREAM_INC=/c/cygwin/usr/i686-w64-mingw32/sys-root/mingw/include/
-SRC=vt.cpp externs.cpp fp_routines.cpp asm_patches.S
+SRC=compat.cpp vt.cpp externs.cpp fp_routines.cpp asm_patches.S
 OBJ=$(patsubst %.S,%.o,$(patsubst %.cpp,%.o,$(patsubst %.rc,%.o,$(SRC))))
 TARGET=vt.exe
 
 # WinNT3.x specific common section
 ifdef NT3
-#	override LDFLAGS:=$(filter-out -s,$(LDFLAGS)) -g -Wl,--subsystem,console:3.10 -Wl,--major-os-version,1 -Wl,--minor-os-version,0
-	override LDFLAGS:=$(filter-out -s,$(LDFLAGS)) -g -Wl,--subsystem,console:3.10
+	LDFLAGS+=-Wl,-pie -Wl,-e_CompatCRTStartup -Wl,--subsystem,console:3.10
 	override NT3:=-DNT3=$(NT3)
 endif
 
@@ -49,15 +48,16 @@ endif
 # i386 is minimum system requirement for Windows 95 (MinGW 4.7.2 default arch)
 # i486 is minimum system requirement for Windows NT4
 # i386 is minimum system requirement for Windows NT3.1
+# i386 is minimum system requirement for Win32s
 # It's assumed that g++ (MinGW) version is 4.7.2, clang++ (LLVM) version is 3.6.2 and includes are from MinGW-w64 4.9.2
 ifeq ($(CC),clang++)
 	INC=-I$(UPSTREAM_INC)
-	CFLAGS+=-target i486-pc-windows-gnu -march=i486 -Wno-ignored-attributes -Wno-deprecated-register -Wno-inconsistent-dllimport -Wno-unused-value -DUMDF_USING_NTSTATUS
+	CFLAGS+=-target i386-pc-windows-gnu -march=i386 -Wno-ignored-attributes -Wno-deprecated-register -Wno-inconsistent-dllimport -Wno-unused-value -DUMDF_USING_NTSTATUS
 	WINDRES=windres
 endif
 ifeq ($(CC),g++)
 	INC=-I$(UPSTREAM_INC)
-	CFLAGS+=-Wno-attributes -DUMDF_USING_NTSTATUS
+	CFLAGS+=-march=i386 -Wno-attributes -DUMDF_USING_NTSTATUS
 	WINDRES=windres
 endif
 
@@ -68,11 +68,6 @@ all: $(TARGET)
 
 $(TARGET): $(OBJ) 
 	$(CC) -o $@ $(OBJ) $(LDFLAGS)
-ifdef NT3
-	$(OBJCOPY) $(TARGET) $(TARGET).debug
-	$(STRIP) $(TARGET)
-	$(COMPAT) $(TARGET) $(TARGET).debug
-endif
 	
 %.o: %.cpp
 	$(CC) -c -o $@ $< $(CFLAGS) $(INC)

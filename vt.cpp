@@ -2,8 +2,10 @@
 #include <iomanip>
 #include <limits>
 #include <string>
+#include <fstream>
 #include <windows.h>
 #include "externs.h"
+#include "tee_buf.hpp"
 #include "fp_routines.h"
 #include "labeled_values.hpp"
 
@@ -53,22 +55,16 @@ extern template std::_Setfill<char> std::setfill(char);													//caused by 
 extern template bool __gnu_cxx::operator==(const std::string::iterator&, const std::string::iterator&);	//caused by use of std::remove_if(std::string::iterator, std::string::iterator, bool (*)(char))
 #endif
 
-#ifdef NT3
-#ifndef _WIN64
+#if defined(NT3)&&!defined(_WIN64)
 extern "C" bool __stdcall GetSystemMetricsSehWrapper(int nIndex, int* result);
-#endif
-
-typedef void (CDECL *p__set_app_type)(int at);
-extern "C" void __cdecl Msvcrt20SetAppType(int at)
-{
-	if (p__set_app_type fn__set_app_type=(p__set_app_type)GetProcAddress(GetModuleHandle("msvcrt.dll"), "__set_app_type"))
-		fn__set_app_type(at);
-}
 #endif
 
 int main(int argc, char* argv[])
 {
 	Externs::MakeInstance();
+	
+	std::string cout_copy;
+	CreateOstreamTeeBuf(std::cout, cout_tee_buf, std::bind<std::string&(std::string::*)(const char*, size_t)>(&std::string::append, &cout_copy, std::placeholders::_1, std::placeholders::_2));
 	
 	//This sets fill character to '0' for all subsequent cout outputs 
 	//It only matters when setw in non-zero and it is reset to zero after every output
@@ -248,14 +244,21 @@ int main(int argc, char* argv[])
 	PrintFileInformation("NTKERN.VXD", "ProductVersion");
 	PrintFileInformation("W32SYS.DLL", "FileVersion");
 	
-	std::cout<<std::endl;
+	cout_tee_buf.Deactivate();
 	
-	HMODULE hMod=LoadLibraryEx("AVICAP.DLL", NULL, LOAD_LIBRARY_AS_DATAFILE);
-    
-	std::cout<<"Press ENTER to continue..."<<std::flush;
-	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');	//Needs defined NOMINMAX
-	
-	FreeLibrary(hMod);
+	if (GetStdHandle(STD_OUTPUT_HANDLE)==INVALID_HANDLE_VALUE) {
+		if (MessageBox(NULL, "Output will be saved to VT_OUT.TXT", "vt.exe", MB_ICONINFORMATION|MB_OKCANCEL|MB_DEFBUTTON1)==IDOK) {
+			std::ofstream ofile("VT_OUT.TXT", std::ofstream::trunc);
+			MessageBox(NULL, cout_copy.c_str(), "vt.exe", MB_OK);
+			ofile<<cout_copy;
+			ofile.close();
+		}
+	} else {
+		std::cout<<std::endl;
+		
+		std::cout<<"Press ENTER to continue..."<<std::flush;
+		std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');	//Needs defined NOMINMAX
+	}	
 	
 	return 0;
 }
