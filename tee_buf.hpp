@@ -15,6 +15,7 @@ private:
 	OstrT &ostr;
 	std::basic_streambuf<typename OstrT::char_type> *orig_buf;
 	TeeCallbackType tee_callback;
+	bool no_sync_err;
 	
 	//Hacky hacky hacky...
 	//Class tries to redirect all the output to original ostream/wcostream buffer
@@ -26,32 +27,34 @@ private:
 	//But no... we will cut off some corners and just redirect protected members to it's equivalents of original buffer via hacky means
 	//Actually it works and if we redirect all of the protected members we are pretty safe
 	//Observations on behaviour of GCC's ostream implementaion show that it's enough to redirect only protected functions listed below (at least for this particular implementation)
-	//(BTW, somehow ostream calls these protected functions directly...)
+	//(BTW, ostream calls these protected functions directly because they are friends with streambuf)
 	
 	std::streamsize xsputn(const typename OstrT::char_type* s, std::streamsize n) {
 		if (tee_callback) tee_callback(s, n);
-		((OstreamTeeBuf<OstrT>*)orig_buf)->xsputn(s, n);
-		return n;
+		return ((OstreamTeeBuf<OstrT>*)orig_buf)->xsputn(s, n);
 	};
 	
 	typename std::char_traits<typename OstrT::char_type>::int_type overflow(typename std::char_traits<typename OstrT::char_type>::int_type c) {
 		if (tee_callback) tee_callback((const typename OstrT::char_type*)&c, 1);
-		((OstreamTeeBuf<OstrT>*)orig_buf)->overflow(c);
-		return c==std::char_traits<typename OstrT::char_type>::eof()?std::char_traits<typename OstrT::char_type>::not_eof(c):c;
+		return ((OstreamTeeBuf<OstrT>*)orig_buf)->overflow(c);
 	};
 	
 	int sync() {
-		((OstreamTeeBuf<OstrT>*)orig_buf)->sync();
-		return 0;
+		int res=((OstreamTeeBuf<OstrT>*)orig_buf)->sync();
+		return no_sync_err?0:res;
 	};
 public:
-	OstreamTeeBuf(OstrT &ostr, TeeCallbackType tee_callback): ostr(ostr), orig_buf(ostr.rdbuf(this)), tee_callback(tee_callback) {};
+	OstreamTeeBuf(OstrT &ostr, TeeCallbackType tee_callback): ostr(ostr), orig_buf(ostr.rdbuf(this)), tee_callback(tee_callback), no_sync_err(false) {};
 	
 	void Deactivate() {
 		if (orig_buf) {
 			ostr.rdbuf(orig_buf);
 			orig_buf=NULL;
 		}
+	};
+	
+	void IgnoreSyncErrors(bool value) {
+		no_sync_err=value;
 	};
 	
 	~OstreamTeeBuf() {

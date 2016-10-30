@@ -65,6 +65,7 @@ int main(int argc, char* argv[])
 	
 	std::string cout_copy;
 	CreateOstreamTeeBuf(std::cout, cout_tee_buf, std::bind<std::string&(std::string::*)(const char*, size_t)>(&std::string::append, &cout_copy, std::placeholders::_1, std::placeholders::_2));
+	cout_tee_buf.IgnoreSyncErrors(true);
 	
 	//This sets fill character to '0' for all subsequent cout outputs 
 	//It only matters when setw in non-zero and it is reset to zero after every output
