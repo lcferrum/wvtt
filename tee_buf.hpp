@@ -15,7 +15,7 @@ private:
 	OstrT &ostr;
 	std::basic_streambuf<typename OstrT::char_type> *orig_buf;
 	TeeCallbackType tee_callback;
-	bool no_sync_err;
+	bool no_err;
 	
 	//Hacky hacky hacky...
 	//Class tries to redirect all the output to original ostream/wcostream buffer
@@ -31,20 +31,22 @@ private:
 	
 	std::streamsize xsputn(const typename OstrT::char_type* s, std::streamsize n) {
 		if (tee_callback) tee_callback(s, n);
-		return ((OstreamTeeBuf<OstrT>*)orig_buf)->xsputn(s, n);
+		std::streamsize res=((OstreamTeeBuf<OstrT>*)orig_buf)->xsputn(s, n);
+		return no_err?n:res;
 	};
 	
 	typename std::char_traits<typename OstrT::char_type>::int_type overflow(typename std::char_traits<typename OstrT::char_type>::int_type c) {
 		if (tee_callback) tee_callback((const typename OstrT::char_type*)&c, 1);
-		return ((OstreamTeeBuf<OstrT>*)orig_buf)->overflow(c);
+		typename std::char_traits<typename OstrT::char_type>::int_type res=((OstreamTeeBuf<OstrT>*)orig_buf)->overflow(c);
+		return no_err?(c==std::char_traits<typename OstrT::char_type>::eof()?std::char_traits<typename OstrT::char_type>::not_eof(c):c):res;
 	};
 	
 	int sync() {
 		int res=((OstreamTeeBuf<OstrT>*)orig_buf)->sync();
-		return no_sync_err?0:res;
+		return no_err?0:res;
 	};
 public:
-	OstreamTeeBuf(OstrT &ostr, TeeCallbackType tee_callback): ostr(ostr), orig_buf(ostr.rdbuf(this)), tee_callback(tee_callback), no_sync_err(false) {};
+	OstreamTeeBuf(OstrT &ostr, TeeCallbackType tee_callback): ostr(ostr), orig_buf(ostr.rdbuf(this)), tee_callback(tee_callback), no_err(false) {};
 	
 	void Deactivate() {
 		if (orig_buf) {
@@ -53,8 +55,8 @@ public:
 		}
 	};
 	
-	void IgnoreSyncErrors(bool value) {
-		no_sync_err=value;
+	void IgnoreOutputErrors(bool value) {
+		no_err=value;
 	};
 	
 	~OstreamTeeBuf() {

@@ -52,7 +52,7 @@ endif
 # It's assumed that g++ (MinGW) version is 4.7.2, clang++ (LLVM) version is 3.6.2 and includes are from MinGW-w64 4.9.2
 ifeq ($(CC),clang++)
 	INC=-I$(UPSTREAM_INC)
-	CFLAGS+=-target i386-pc-windows-gnu -march=i386 -Wno-ignored-attributes -Wno-deprecated-register -Wno-inconsistent-dllimport -Wno-unused-value -DUMDF_USING_NTSTATUS
+	CFLAGS+=-target i386-pc-windows-gnu -march=i386 -Wno-dll-attribute-on-redeclaration -Wno-ignored-attributes -Wno-deprecated-register -Wno-inconsistent-dllimport -Wno-unused-value -DUMDF_USING_NTSTATUS
 	WINDRES=windres
 endif
 ifeq ($(CC),g++)

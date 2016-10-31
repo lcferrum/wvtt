@@ -3,6 +3,7 @@
 #include <limits>
 #include <string>
 #include <fstream>
+#include <conio.h>
 #include <windows.h>
 #include "externs.h"
 #include "tee_buf.hpp"
@@ -65,7 +66,8 @@ int main(int argc, char* argv[])
 	
 	std::string cout_copy;
 	CreateOstreamTeeBuf(std::cout, cout_tee_buf, std::bind<std::string&(std::string::*)(const char*, size_t)>(&std::string::append, &cout_copy, std::placeholders::_1, std::placeholders::_2));
-	cout_tee_buf.IgnoreSyncErrors(true);
+	bool no_stdout=GetStdHandle(STD_OUTPUT_HANDLE)==INVALID_HANDLE_VALUE;
+	cout_tee_buf.IgnoreOutputErrors(no_stdout);
 	
 	//This sets fill character to '0' for all subsequent cout outputs 
 	//It only matters when setw in non-zero and it is reset to zero after every output
@@ -117,18 +119,17 @@ int main(int argc, char* argv[])
 			});
 			std::cout<<"\twReserved = "<<COUT_HEX(osvi_ex.wReserved, 2)<<std::endl;
 		}
-	} else {
-		DWORD dwVersion=GetVersion();
-		std::cout<<"GetVersion = "<<COUT_HEX(dwVersion, 8)<<std::endl;
-		if (dwVersion) {
-			std::cout<<"\tMajorVersion = "<<COUT_DEC(LOBYTE(LOWORD(dwVersion)))<<std::endl;
-			std::cout<<"\tMinorVersion = "<<COUT_DEC(HIBYTE(LOWORD(dwVersion)))<<std::endl;
-			//N.B.:
-			//Code below is actual for Win32 API
-			//On Win16 API HIWORD contains MS-DOS version, major number in LOBYTE and minor number in HIBYTE
-			std::cout<<"\tIsNT = "<<COUT_BOOL((dwVersion&0x80000000)==0)<<std::endl;
-			std::cout<<"\tBldNumOrRes = "<<COUT_DEC(HIWORD(dwVersion)&~0x8000)<<std::endl;	//This thing is reserved on Win 9x and build number on NT and Win32s
-		}
+	}
+	DWORD dwVersion=GetVersion();
+	std::cout<<"GetVersion = "<<COUT_HEX(dwVersion, 8)<<std::endl;
+	if (dwVersion) {
+		std::cout<<"\tMajorVersion = "<<COUT_DEC(LOBYTE(LOWORD(dwVersion)))<<std::endl;
+		std::cout<<"\tMinorVersion = "<<COUT_DEC(HIBYTE(LOWORD(dwVersion)))<<std::endl;
+		//N.B.:
+		//Code below is actual for Win32 API
+		//On Win16 API HIWORD contains MS-DOS version, major number in LOBYTE and minor number in HIBYTE
+		std::cout<<"\tIsNT = "<<COUT_BOOL((dwVersion&0x80000000)==0)<<std::endl;
+		std::cout<<"\tBldNumOrRes = "<<COUT_DEC(HIWORD(dwVersion)&~0x8000)<<std::endl;	//This thing is reserved on Win 9x and build number on NT and Win32s
 	}
 
 	std::cout<<std::endl;
@@ -247,19 +248,24 @@ int main(int argc, char* argv[])
 	
 	cout_tee_buf.Deactivate();
 	
-	if (GetStdHandle(STD_OUTPUT_HANDLE)==INVALID_HANDLE_VALUE) {
-		if (MessageBox(NULL, "Output will be saved to VT_OUT.TXT", "vt.exe", MB_ICONINFORMATION|MB_OKCANCEL|MB_DEFBUTTON1)==IDOK) {
-			std::ofstream ofile("VT_OUT.TXT", std::ofstream::trunc);
-			MessageBox(NULL, cout_copy.c_str(), "vt.exe", MB_OK);
-			ofile<<cout_copy;
-			ofile.close();
-		}
+	bool save_output=false;
+	if (no_stdout) {
+		save_output=MessageBox(NULL, "Output will be saved to VT_OUT.TXT", "vt.exe", MB_ICONINFORMATION|MB_OKCANCEL|MB_DEFBUTTON1)==IDOK;
 	} else {
 		std::cout<<std::endl;
+		std::cout<<"Press S to save output to VT_OUT.TXT or ENTER to continue..."<<std::flush;
 		
-		std::cout<<"Press ENTER to continue..."<<std::flush;
-		std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');	//Needs defined NOMINMAX
+		char command;
+		do command=tolower(_getch()); while (command!='\r'&&command!='s');
+		
+		std::cout<<std::endl;
+		save_output=command=='s';
 	}	
+	if (save_output) {
+		std::ofstream ofile("VT_OUT.TXT", std::ofstream::trunc);
+		ofile<<cout_copy;
+		ofile.close();
+	}
 	
 	return 0;
 }
