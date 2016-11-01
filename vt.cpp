@@ -382,18 +382,23 @@ void PrintFileInformation(const char* query_path, const char* sfi_item)
 		
 		if (DWORD buflen=GetFileVersionInfoSize(full_path.c_str(), NULL)) {	
 			BYTE retbuf[buflen];
-			std::cout<<"DEBUG GetFileVersionInfoSize(1): "<<COUT_DEC(buflen)<<std::endl;
 			if (GetFileVersionInfo(full_path.c_str(), 0, buflen, (LPVOID)retbuf)) {	
 				//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use VERSIONINFO from this file instead of original one
 				//So information can differ between what Explorer show (actual file VERSIONINFO) and what GetFileVersionInfo retreives
 				LANGANDCODEPAGE *plcp;
 				LANGANDCODEPAGE def_lcp={0x0409, 0x0};
 				UINT vqvlen;
+#ifdef NT3
+				//On Win32s VerQueryValue is a thunk to Win16 API and this thunk doesn't work with string literals passed as LP(C)STR
+				//LP(C)STR should be on the stack or heap for this thunk to work
+				char vfi_translation[]="\\VarFileInfo\\Translation";
+				if (!VerQueryValue((LPVOID)retbuf, vfi_translation, (LPVOID*)&plcp, &vqvlen)) {
+#else
 				if (!VerQueryValue((LPVOID)retbuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &vqvlen)) {
-					//If not translations found - assume default translation
+#endif
+					//If no translations found - assume default translation
 					plcp=&def_lcp;
 				}
-				std::cout<<"DEBUG GetFileVersionInfoSize(2): "<<COUT_HEX(plcp->wLanguage, 4)<<" "<<COUT_HEX(plcp->wCodePage, 4)<<std::endl;
 				//We are interested only in first translation - most system files have only one VERSIONINFO translation anyway
 				char *value;
 				std::stringstream qstr;
