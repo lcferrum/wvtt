@@ -119,7 +119,8 @@ int main(int argc, char* argv[])
 			});
 			std::cout<<"\twReserved = "<<COUT_HEX(osvi_ex.wReserved, 2)<<std::endl;
 		}
-	}
+	} else 
+		std::cout<<"GetVersionEx/RtlGetVersion failed or not available!"<<std::endl;
 	DWORD dwVersion=GetVersion();
 	std::cout<<"GetVersion = "<<COUT_HEX(dwVersion, 8)<<std::endl;
 	if (dwVersion) {
@@ -166,7 +167,7 @@ int main(int argc, char* argv[])
 			return false;
 #endif
 	}))
-		std::cout<<"\tMETRICS NOT SET"<<std::endl;
+		std::cout<<"\tREQUESTED METRICS NOT FOUND"<<std::endl;
 	
 	std::cout<<std::endl;
 	
@@ -381,6 +382,7 @@ void PrintFileInformation(const char* query_path, const char* sfi_item)
 		
 		if (DWORD buflen=GetFileVersionInfoSize(full_path.c_str(), NULL)) {	
 			BYTE retbuf[buflen];
+			std::cout<<"DEBUG GetFileVersionInfoSize(1): "<<COUT_DEC(buflen)<<std::endl;
 			if (GetFileVersionInfo(full_path.c_str(), 0, buflen, (LPVOID)retbuf)) {	
 				//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use VERSIONINFO from this file instead of original one
 				//So information can differ between what Explorer show (actual file VERSIONINFO) and what GetFileVersionInfo retreives
@@ -391,6 +393,7 @@ void PrintFileInformation(const char* query_path, const char* sfi_item)
 					//If not translations found - assume default translation
 					plcp=&def_lcp;
 				}
+				std::cout<<"DEBUG GetFileVersionInfoSize(2): "<<COUT_HEX(plcp->wLanguage, 4)<<" "<<COUT_HEX(plcp->wCodePage, 4)<<std::endl;
 				//We are interested only in first translation - most system files have only one VERSIONINFO translation anyway
 				char *value;
 				std::stringstream qstr;
