@@ -79,10 +79,12 @@ int main(int argc, char* argv[])
 	std::cout.unsetf(std::ios::showbase);
 	std::cout.setf(std::ios::uppercase); 
 
-	//Disable Windows error dialog popup for failed LoadLibrary attempts
+#ifdef NT3
+	//Disable Windows error dialog popup for failed LoadLibrary attempts on NT3.x and Win32s
 	//This is done so GetSystemFilePath can search for needed files using LoadLibrary
-	SetErrorMode(SEM_FAILCRITICALERRORS);
-
+	SetErrorMode(SEM_NOOPENFILEERRORBOX|SEM_FAILCRITICALERRORS);
+#endif
+	
 	OSVERSIONINFOEX osvi_ex;
 	if (GetVersionWrapper(osvi_ex)) {
 		std::cout<<"\tdwMajorVersion = "<<COUT_DEC(osvi_ex.dwMajorVersion)<<std::endl;
