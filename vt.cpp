@@ -66,8 +66,8 @@ int main(int argc, char* argv[])
 	
 	std::string cout_copy;
 	CreateOstreamTeeBuf(std::cout, cout_tee_buf, std::bind<std::string&(std::string::*)(const char*, size_t)>(&std::string::append, &cout_copy, std::placeholders::_1, std::placeholders::_2));
-	bool no_stdout=GetStdHandle(STD_OUTPUT_HANDLE)==INVALID_HANDLE_VALUE;
-	cout_tee_buf.IgnoreOutputErrors(no_stdout);
+	HANDLE hstdstream=GetStdHandle(STD_OUTPUT_HANDLE);
+	cout_tee_buf.IgnoreOutputErrors(hstdstream==INVALID_HANDLE_VALUE);
 	
 	//This sets fill character to '0' for all subsequent cout outputs 
 	//It only matters when setw in non-zero and it is reset to zero after every output
@@ -247,19 +247,19 @@ int main(int argc, char* argv[])
 	PrintFileInformation("KERNEL32.DLL", "ProductVersion");
 	PrintFileInformation("USER.EXE", "ProductVersion");
 	PrintFileInformation("NTKERN.VXD", "ProductVersion");
-	PrintFileInformation("W32SYS.DLL", "FileVersion");
 	
 	cout_tee_buf.Deactivate();
 	
 	bool save_output=false;
-	if (no_stdout) {
+	DWORD conmode;
+	if (hstdstream==INVALID_HANDLE_VALUE) {
 		save_output=MessageBox(NULL, "Output will be saved to VT_OUT.TXT", "vt.exe", MB_ICONINFORMATION|MB_OKCANCEL|MB_DEFBUTTON1)==IDOK;
-	} else {
+	} else if (GetConsoleMode(hstdstream, &conmode)) {
 		std::cout<<std::endl;
 		std::cout<<"Press S to save output to VT_OUT.TXT or ENTER to continue..."<<std::flush;
 		
 		char command;
-		do command=tolower(_getch()); while (command!='\r'&&command!='s');
+		do command=tolower(_getch()); while (command!='\r'&&command!='s'&&command!=EOF);
 		
 		std::cout<<std::endl;
 		save_output=command=='s';
