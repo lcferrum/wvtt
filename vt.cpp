@@ -42,10 +42,10 @@ LabeledValues ProductTypes(LABELED_VALUES_ARG(VER_NT_WORKSTATION, VER_NT_DOMAIN_
 LabeledValues SystemMetrics(LABELED_VALUES_ARG(SM_FUNDAMENTALS, SM_WEPOS, SM_DEBUG, SM_PENWINDOWS, SM_DBCSENABLED, SM_IMMENABLED, SM_SLOWMACHINE, SM_TABLETPC, SM_MEDIACENTER, SM_STARTER, SM_SERVERR2));
 LabeledValues ProcessorArchitectures(LABELED_VALUES_ARG(PROCESSOR_ARCHITECTURE_INTEL, PROCESSOR_ARCHITECTURE_MIPS, PROCESSOR_ARCHITECTURE_ALPHA, PROCESSOR_ARCHITECTURE_PPC, PROCESSOR_ARCHITECTURE_SHX, PROCESSOR_ARCHITECTURE_ARM, PROCESSOR_ARCHITECTURE_IA64, PROCESSOR_ARCHITECTURE_ALPHA64, PROCESSOR_ARCHITECTURE_MSIL, PROCESSOR_ARCHITECTURE_AMD64, PROCESSOR_ARCHITECTURE_IA32_ON_WIN64, PROCESSOR_ARCHITECTURE_NEUTRAL, PROCESSOR_ARCHITECTURE_UNKNOWN));
 LabeledValues ProductInfoTypes(LABELED_VALUES_ARG(PRODUCT_UNDEFINED, PRODUCT_ULTIMATE, PRODUCT_HOME_BASIC, PRODUCT_HOME_PREMIUM, PRODUCT_ENTERPRISE, PRODUCT_HOME_BASIC_N, PRODUCT_BUSINESS, PRODUCT_STANDARD_SERVER, PRODUCT_DATACENTER_SERVER, PRODUCT_SMALLBUSINESS_SERVER, PRODUCT_ENTERPRISE_SERVER, PRODUCT_STARTER, PRODUCT_DATACENTER_SERVER_CORE, PRODUCT_STANDARD_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_IA64, PRODUCT_BUSINESS_N, PRODUCT_WEB_SERVER, PRODUCT_CLUSTER_SERVER, PRODUCT_HOME_SERVER, PRODUCT_STORAGE_EXPRESS_SERVER, PRODUCT_STORAGE_STANDARD_SERVER, PRODUCT_STORAGE_WORKGROUP_SERVER, PRODUCT_STORAGE_ENTERPRISE_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM, PRODUCT_UNLICENSED, PRODUCT_HOME_PREMIUM_N, PRODUCT_ENTERPRISE_N, PRODUCT_ULTIMATE_N, PRODUCT_WEB_SERVER_CORE, PRODUCT_MEDIUMBUSINESS_SERVER_MANAGEMENT, PRODUCT_MEDIUMBUSINESS_SERVER_SECURITY, PRODUCT_MEDIUMBUSINESS_SERVER_MESSAGING, PRODUCT_SERVER_FOUNDATION, PRODUCT_HOME_PREMIUM_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS_V, PRODUCT_STANDARD_SERVER_V, PRODUCT_DATACENTER_SERVER_V, PRODUCT_ENTERPRISE_SERVER_V, PRODUCT_DATACENTER_SERVER_CORE_V, PRODUCT_STANDARD_SERVER_CORE_V, PRODUCT_ENTERPRISE_SERVER_CORE_V, PRODUCT_HYPERV, PRODUCT_STORAGE_EXPRESS_SERVER_CORE, PRODUCT_STORAGE_STANDARD_SERVER_CORE, PRODUCT_STORAGE_WORKGROUP_SERVER_CORE, PRODUCT_STORAGE_ENTERPRISE_SERVER_CORE, PRODUCT_STARTER_N, PRODUCT_PROFESSIONAL, PRODUCT_PROFESSIONAL_N, PRODUCT_SB_SOLUTION_SERVER, PRODUCT_SERVER_FOR_SB_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS_CORE, PRODUCT_SB_SOLUTION_SERVER_EM, PRODUCT_SERVER_FOR_SB_SOLUTIONS_EM, PRODUCT_SOLUTION_EMBEDDEDSERVER, PRODUCT_SOLUTION_EMBEDDEDSERVER_CORE, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM_CORE, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMT, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDL, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMTSVC, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDLSVC, PRODUCT_CLUSTER_SERVER_V, PRODUCT_EMBEDDED, PRODUCT_STARTER_E, PRODUCT_HOME_BASIC_E, PRODUCT_HOME_PREMIUM_E, PRODUCT_PROFESSIONAL_E, PRODUCT_ENTERPRISE_E, PRODUCT_ULTIMATE_E));
-BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
+BasicLabeledValues<HKEY, char> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
 
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
-void PrintFileInformation(const char* query_path, const char* sfi_item);
+void PrintFileInformation(const char* query_path);
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
 
 #ifdef __clang__
@@ -56,7 +56,7 @@ extern template std::_Setfill<char> std::setfill(char);													//caused by 
 extern template bool __gnu_cxx::operator==(const std::string::iterator&, const std::string::iterator&);	//caused by use of std::remove_if(std::string::iterator, std::string::iterator, bool (*)(char))
 #endif
 
-#if defined(NT3)&&!defined(_WIN64)
+#if defined(X86_3X)&&!defined(_WIN64)
 extern "C" bool __stdcall GetSystemMetricsSehWrapper(int nIndex, int* result);
 #endif
 
@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
 	std::cout.unsetf(std::ios::showbase);
 	std::cout.setf(std::ios::uppercase); 
 
-#ifdef NT3
+#ifdef X86_3X
 	//Disable Windows error dialog popup for failed LoadLibrary attempts on NT3.x and Win32s
 	//This is done so GetSystemFilePath can search for needed files using LoadLibrary
 	SetErrorMode(SEM_NOOPENFILEERRORBOX|SEM_FAILCRITICALERRORS);
@@ -145,11 +145,11 @@ int main(int argc, char* argv[])
 		//So passed nIndex can be potentially out of bounds and lead to memory access violation
 		//NT 3.51's (and onwards) GetSystemMetrics actually checks that passed index is valid (i.e. within array)
 		//But on NT 3.1 and 3.5 GetSystemMetrics just access the array with whatever index passed
-		//Some small diviations from maximum index won't do many harm (aside from returning incorrect result) because they land somewhere within SERVERINFO struct
+		//Some small diviations from maximum index won't do much harm (aside from returning incorrect result) because they land somewhere within SERVERINFO struct
 		//The struct is few kilobytes in size and aiSysMet starts somewhere within first kilobyte
 		//But large deviations like 1000-th element behind real maximum will surely get you in trouble
 		//Real GetSystemMetrics index range is 0-43 for NT 3.1 and 0-70 for NT 3.5 - everything else is out of bounds
-#if !defined(_WIN64)&&defined(NT3)
+#if !defined(_WIN64)&&defined(X86_3X)
 		int result;
 		if (GetSystemMetricsSehWrapper(value, &result)) {
 			if (result) {
@@ -244,9 +244,9 @@ int main(int argc, char* argv[])
 	
 	std::cout<<std::endl;
 	
-	PrintFileInformation("KERNEL32.DLL", "ProductVersion");
-	PrintFileInformation("USER.EXE", "ProductVersion");
-	PrintFileInformation("NTKERN.VXD", "ProductVersion");
+	PrintFileInformation("KERNEL32.DLL");
+	PrintFileInformation("USER.EXE");
+	PrintFileInformation("NTKERN.VXD");
 	
 	cout_tee_buf.Deactivate();
 	
@@ -334,7 +334,7 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 		std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<" - error while opening!"<<std::endl;
 }
 
-void PrintFileInformation(const char* query_path, const char* sfi_item) 
+void PrintFileInformation(const char* query_path) 
 {
 	//Some Windows system files bear information that can help in detecting Windows version
 	//Most of these files are PE DLLs but some are also LE VXDs
@@ -390,7 +390,7 @@ void PrintFileInformation(const char* query_path, const char* sfi_item)
 				LANGANDCODEPAGE *plcp;
 				LANGANDCODEPAGE def_lcp={0x0409, 0x0};
 				UINT vqvlen;
-#ifdef NT3
+#ifdef X86_3X
 				//On Win32s VerQueryValue is a thunk to Win16 API and this thunk doesn't work with string literals passed as LP(C)STR
 				//LP(C)STR should be on the stack or heap for this thunk to work
 				char vfi_translation[]="\\VarFileInfo\\Translation";
@@ -404,11 +404,11 @@ void PrintFileInformation(const char* query_path, const char* sfi_item)
 				//We are interested only in first translation - most system files have only one VERSIONINFO translation anyway
 				char *value;
 				std::stringstream qstr;
-				qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\"<<sfi_item;
+				qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
 				if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
 					std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
 					got_info=true;
-#ifdef NT3
+#ifdef X86_3X
 				} else {
 					//Wow, we got translation but failed at getting string for this translation?
 					//And it was just simple ProductVersion
@@ -416,7 +416,7 @@ void PrintFileInformation(const char* query_path, const char* sfi_item)
 					//So let's try the other way around
 					qstr.str(std::string());
 					qstr.clear();
-					qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\"<<sfi_item;
+					qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\ProductVersion";
 					if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
 						std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
 						got_info=true;
