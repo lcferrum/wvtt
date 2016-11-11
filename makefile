@@ -41,7 +41,7 @@ TARGET=vt.exe
 ifeq ($(BUILD),MinGW_472)
 	CC=g++
 	INC=-I$(UPSTREAM_INC)
-	CFLAGS+=-march=i386 -Wno-attributes -DUMDF_USING_NTSTATUS
+	CFLAGS+=-Wno-attributes -DUMDF_USING_NTSTATUS
 ifeq ($(HOST),x86-64)
 $(error not implemented)
 endif
