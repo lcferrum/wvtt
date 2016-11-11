@@ -70,8 +70,19 @@ ifeq ($(HOST),x86_3X)
 endif
 endif
 
+# This thing introduced pthread dependency - WTF?
+#$  x86_64-w64-mingw32-g++ -v
+#Using built-in specs.
+#COLLECT_GCC=x86_64-w64-mingw32-g++
+#COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-w64-mingw32/5.4.0/lto-wrapper.exe
+#Target: x86_64-w64-mingw32
+#Configured with: /cygdrive/i/szsz/tmpp/cygwin64/mingw64-x86_64/mingw64-x86_64-gcc-5.4.0-3.i686/src/gcc-5.4.0/configure --srcdir=/cygdrive/i/szsz/tmpp/cygwin64/mingw64-x86_64/mingw64-x86_64-gcc-5.4.0-3.i686/src/gcc-5.4.0 --prefix=/usr --exec-prefix=/usr --localstatedir=/var --sysconfdir=/etc --docdir=/usr/share/doc/mingw64-x86_64-gcc --htmldir=/usr/share/doc/mingw64-x86_64-gcc/html -C --build=i686-pc-cygwin --host=i686-pc-cygwin --target=x86_64-w64-mingw32 --without-libiconv-prefix --without-libintl-prefix --with-sysroot=/usr/x86_64-w64-mingw32/sys-root --with-build-sysroot=/usr/x86_64-w64-mingw32/sys-root --disable-multilib --disable-win32-registry --enable-languages=c,ada,c++,fortran,lto,objc,obj-c++ --enable-fully-dynamic-string --enable-graphite --enable-libgomp --enable-libquadmath --enable-libquadmath-support --enable-libssp --enable-version-specific-runtime-libs --enable-libgomp --enable-libada --with-dwarf2 --with-gnu-ld --with-gnu-as --with-tune=generic --with-cloog-include=/usr/include/cloog-isl --with-system-zlib --enable-threads=posix --libexecdir=/usr/lib
+#Thread model: posix
+#gcc version 5.4.0 (GCC)
+
 # Current MinGW-w64
 ifeq ($(BUILD),MinGW-w64)
+	LDFLAGS+=-static -lpthread
 ifeq ($(HOST),x86-64)
 	CC=x86_64-w64-mingw32-g++
 endif
