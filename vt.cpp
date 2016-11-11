@@ -42,7 +42,7 @@ LabeledValues ProductTypes(LABELED_VALUES_ARG(VER_NT_WORKSTATION, VER_NT_DOMAIN_
 LabeledValues SystemMetrics(LABELED_VALUES_ARG(SM_FUNDAMENTALS, SM_WEPOS, SM_DEBUG, SM_PENWINDOWS, SM_DBCSENABLED, SM_IMMENABLED, SM_SLOWMACHINE, SM_TABLETPC, SM_MEDIACENTER, SM_STARTER, SM_SERVERR2));
 LabeledValues ProcessorArchitectures(LABELED_VALUES_ARG(PROCESSOR_ARCHITECTURE_INTEL, PROCESSOR_ARCHITECTURE_MIPS, PROCESSOR_ARCHITECTURE_ALPHA, PROCESSOR_ARCHITECTURE_PPC, PROCESSOR_ARCHITECTURE_SHX, PROCESSOR_ARCHITECTURE_ARM, PROCESSOR_ARCHITECTURE_IA64, PROCESSOR_ARCHITECTURE_ALPHA64, PROCESSOR_ARCHITECTURE_MSIL, PROCESSOR_ARCHITECTURE_AMD64, PROCESSOR_ARCHITECTURE_IA32_ON_WIN64, PROCESSOR_ARCHITECTURE_NEUTRAL, PROCESSOR_ARCHITECTURE_UNKNOWN));
 LabeledValues ProductInfoTypes(LABELED_VALUES_ARG(PRODUCT_UNDEFINED, PRODUCT_ULTIMATE, PRODUCT_HOME_BASIC, PRODUCT_HOME_PREMIUM, PRODUCT_ENTERPRISE, PRODUCT_HOME_BASIC_N, PRODUCT_BUSINESS, PRODUCT_STANDARD_SERVER, PRODUCT_DATACENTER_SERVER, PRODUCT_SMALLBUSINESS_SERVER, PRODUCT_ENTERPRISE_SERVER, PRODUCT_STARTER, PRODUCT_DATACENTER_SERVER_CORE, PRODUCT_STANDARD_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_IA64, PRODUCT_BUSINESS_N, PRODUCT_WEB_SERVER, PRODUCT_CLUSTER_SERVER, PRODUCT_HOME_SERVER, PRODUCT_STORAGE_EXPRESS_SERVER, PRODUCT_STORAGE_STANDARD_SERVER, PRODUCT_STORAGE_WORKGROUP_SERVER, PRODUCT_STORAGE_ENTERPRISE_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM, PRODUCT_UNLICENSED, PRODUCT_HOME_PREMIUM_N, PRODUCT_ENTERPRISE_N, PRODUCT_ULTIMATE_N, PRODUCT_WEB_SERVER_CORE, PRODUCT_MEDIUMBUSINESS_SERVER_MANAGEMENT, PRODUCT_MEDIUMBUSINESS_SERVER_SECURITY, PRODUCT_MEDIUMBUSINESS_SERVER_MESSAGING, PRODUCT_SERVER_FOUNDATION, PRODUCT_HOME_PREMIUM_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS_V, PRODUCT_STANDARD_SERVER_V, PRODUCT_DATACENTER_SERVER_V, PRODUCT_ENTERPRISE_SERVER_V, PRODUCT_DATACENTER_SERVER_CORE_V, PRODUCT_STANDARD_SERVER_CORE_V, PRODUCT_ENTERPRISE_SERVER_CORE_V, PRODUCT_HYPERV, PRODUCT_STORAGE_EXPRESS_SERVER_CORE, PRODUCT_STORAGE_STANDARD_SERVER_CORE, PRODUCT_STORAGE_WORKGROUP_SERVER_CORE, PRODUCT_STORAGE_ENTERPRISE_SERVER_CORE, PRODUCT_STARTER_N, PRODUCT_PROFESSIONAL, PRODUCT_PROFESSIONAL_N, PRODUCT_SB_SOLUTION_SERVER, PRODUCT_SERVER_FOR_SB_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS_CORE, PRODUCT_SB_SOLUTION_SERVER_EM, PRODUCT_SERVER_FOR_SB_SOLUTIONS_EM, PRODUCT_SOLUTION_EMBEDDEDSERVER, PRODUCT_SOLUTION_EMBEDDEDSERVER_CORE, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM_CORE, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMT, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDL, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMTSVC, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDLSVC, PRODUCT_CLUSTER_SERVER_V, PRODUCT_EMBEDDED, PRODUCT_STARTER_E, PRODUCT_HOME_BASIC_E, PRODUCT_HOME_PREMIUM_E, PRODUCT_PROFESSIONAL_E, PRODUCT_ENTERPRISE_E, PRODUCT_ULTIMATE_E));
-BasicLabeledValues<HKEY, char> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
+BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
 
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
 void PrintFileInformation(const char* query_path);
@@ -321,9 +321,9 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 	
 	if (RegOpenKeyEx(hive, keypath, 0, KEY_READ, &reg_key)==ERROR_SUCCESS) {
 		if (RegQueryValueEx(reg_key, value, NULL, &key_type, NULL, &buflen)==ERROR_SUCCESS&&(key_type==REG_SZ||key_type==REG_EXPAND_SZ)) {
-			char retbuf[buflen];
-			if (RegQueryValueEx(reg_key, value, NULL, &key_type, (LPBYTE)retbuf, &buflen)==ERROR_SUCCESS&&(key_type==REG_SZ||key_type==REG_EXPAND_SZ)&&retbuf[buflen-1]=='\0') {
-				std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<":\n\t\""<<retbuf<<"\""<<std::endl;
+			char regbuf[buflen];
+			if (RegQueryValueEx(reg_key, value, NULL, &key_type, (LPBYTE)regbuf, &buflen)==ERROR_SUCCESS&&(key_type==REG_SZ||key_type==REG_EXPAND_SZ)&&regbuf[buflen-1]=='\0') {
+				std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<":\n\t\""<<regbuf<<"\""<<std::endl;
 				success=true;
 			}
 		}
@@ -340,7 +340,11 @@ void PrintFileInformation(const char* query_path)
 	//Most of these files are PE DLLs but some are also LE VXDs
 	//Microsoft vaguely suggests checking VS_FIXEDFILEINFO.FILEVERSION of VERSIONINFO resource and "date" of system files to help detect OS version
 	//In reality it's better to check StringFileInfo.ProductVersion of VERSIONINFO resource and file's modified date/time
-	//ProductVersion holds version info more related to OS version than FILEVERSION that holds actual file version (TODO: example for Win ME and NT4)
+	//ProductVersion holds version info more correlated with OS version than FILEVERSION that holds actual file version
+	//For example, kernel32.dll VERSIONINFO: 
+	//  NT4: FILEVERSION=4.0.1381.7095 ProductVersion="4.00"
+	//  Win98: FILEVERSION=4.10.0.2222 ProductVersion="4.10.2222"
+	//Though FILEVERSION is still useful ecause it doesn't require parsing
 	//N.B.: 
 	//File properties dialog on Win 9x, Win 3.x and Win NT3.x showed StringFileInfo.FileVersion in it's header (not actual VS_FIXEDFILEINFO.FILEVERSION)
 	//On NT systems (starting from NT4, up to and including XP) header showed VS_FIXEDFILEINFO.FILEVERSION instead
@@ -355,7 +359,8 @@ void PrintFileInformation(const char* query_path)
 	//For system DLLs these fields frequently just duplicate OS major/minor version or have some internal version unhelpful for OS version detection
 	//LE files have ModuleVersion field in the header but it's not used in any of system VXDs
 	
-	//"File not found" is also a result - absence/presence of specific files also helps in detecting OS version (ex: USB supplement)
+	//"File not found" is also a result - absence/presence of specific files also helps in detecting OS version
+	//For example, NTKERN.VXD is only found on Win95 versions that have USB Supplement installed 
 	//Also see comments for FPRoutines::GetSystemFilePath to find out how queried file is searched
 	
 	//Most Windows files that are relevant to OS detection are system DLLs
@@ -383,20 +388,33 @@ void PrintFileInformation(const char* query_path)
 		}
 		
 		if (DWORD buflen=GetFileVersionInfoSize(full_path.c_str(), NULL)) {	
-			BYTE retbuf[buflen];
-			if (GetFileVersionInfo(full_path.c_str(), 0, buflen, (LPVOID)retbuf)) {	
-				//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use VERSIONINFO from this file instead of original one
-				//So information can differ between what Explorer show (actual file VERSIONINFO) and what GetFileVersionInfo retreives
-				LANGANDCODEPAGE *plcp;
-				LANGANDCODEPAGE def_lcp={0x0409, 0x0};
+			BYTE vibuf[buflen];
+			if (GetFileVersionInfo(full_path.c_str(), 0, buflen, (LPVOID)vibuf)) {	
+				//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use StringFileInfo from this file instead of original one
+				//So information can differ between what Explorer show (actual file StringFileInfo) and what GetFileVersionInfo retreives
+				//VS_FIXEDFILEINFO remains unaffected
+				
 				UINT vqvlen;
+				VS_FIXEDFILEINFO *pffi;
 #ifdef X86_3X
 				//On Win32s VerQueryValue is a thunk to Win16 API and this thunk doesn't work with string literals passed as LP(C)STR
 				//LP(C)STR should be on the stack or heap for this thunk to work
-				char vfi_translation[]="\\VarFileInfo\\Translation";
-				if (!VerQueryValue((LPVOID)retbuf, vfi_translation, (LPVOID*)&plcp, &vqvlen)) {
+				char vi_root[]="\\";
+				if (VerQueryValue((LPVOID)vibuf, vi_root, (LPVOID*)&pffi, &vqvlen)) {
 #else
-				if (!VerQueryValue((LPVOID)retbuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &vqvlen)) {
+				if (VerQueryValue((LPVOID)vibuf, "\\", (LPVOID*)&pffi, &vqvlen)) {
+#endif
+					std::cout<<"\tVERSIONINFO\\FILEVERSION = "<<COUT_DEC(HIWORD(pffi->dwFileVersionMS))<<"."<<COUT_DEC(LOWORD(pffi->dwFileVersionMS))<<"."<<COUT_DEC(HIWORD(pffi->dwFileVersionLS))<<"."<<COUT_DEC(LOWORD(pffi->dwFileVersionLS))<<std::endl;
+					got_info=true;
+				}
+
+				LANGANDCODEPAGE *plcp;
+				LANGANDCODEPAGE def_lcp={0x0409, 0x0};
+#ifdef X86_3X
+				char vfi_translation[]="\\VarFileInfo\\Translation";
+				if (!VerQueryValue((LPVOID)vibuf, vfi_translation, (LPVOID*)&plcp, &vqvlen)) {
+#else
+				if (!VerQueryValue((LPVOID)vibuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &vqvlen)) {
 #endif
 					//If no translations found - assume default translation
 					plcp=&def_lcp;
@@ -405,7 +423,7 @@ void PrintFileInformation(const char* query_path)
 				char *value;
 				std::stringstream qstr;
 				qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
-				if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
+				if (VerQueryValue((LPVOID)vibuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
 					std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
 					got_info=true;
 #ifdef X86_3X
@@ -417,7 +435,7 @@ void PrintFileInformation(const char* query_path)
 					qstr.str(std::string());
 					qstr.clear();
 					qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\ProductVersion";
-					if (VerQueryValue((LPVOID)retbuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
+					if (VerQueryValue((LPVOID)vibuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
 						std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
 						got_info=true;
 					}
