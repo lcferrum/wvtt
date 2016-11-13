@@ -10,9 +10,9 @@
 
 # Conditionals
 ifeq (,$(if $(filter-out upx clean,$(MAKECMDGOALS)),,$(MAKECMDGOALS)))
-ifeq (,$(and $(filter $(BUILD),MinGW-w64 MinGW-w64_pthreads MinGW MinGW_472 Clang Clang_362),$(filter $(HOST),x86-64 x86 x86_3X)))
+ifeq (,$(and $(filter $(BUILD),MinGW-w64 MinGW-w64_pthreads MinGW_472 Clang_362),$(filter $(HOST),x86-64 x86 x86_3X)))
 $(info Compiler and/or OS type is invalid! Please correctly set BUILD and HOST variables.)
-$(info Possible BUILD values: MinGW-w64, MinGW-w64_pthreads, MinGW, MinGW_472, Clang, Clang_362)
+$(info Possible BUILD values: MinGW-w64, MinGW-w64_pthreads, MinGW_472, Clang_362)
 $(info Possible HOST values: x86-64, x86, x86_3X)
 $(error BUILD/HOST is invalid)
 endif
@@ -42,22 +42,6 @@ ifeq ($(BUILD),MinGW_472)
 	CC=g++
 	INC=-I$(UPSTREAM_INC)
 	CFLAGS+=-Wno-attributes -DUMDF_USING_NTSTATUS
-ifeq ($(HOST),x86-64)
-$(error not implemented)
-endif
-ifeq ($(HOST),x86)
-endif
-ifeq ($(HOST),x86_3X)
-	LDFLAGS+=-Wl,-pie -Wl,-e_CompatCRTStartup -Wl,--subsystem,console:3.10
-	SRC+=compat.cpp
-	X86_3X=-DX86_3X=1
-endif
-endif
-
-# Current MinGW
-ifeq ($(BUILD),MinGW)
-	CC=g++
-	CPP11=-std=gnu++11
 ifeq ($(HOST),x86-64)
 $(error not implemented)
 endif
@@ -114,19 +98,6 @@ ifeq ($(HOST),x86_3X)
 	LDFLAGS+=-Wl,-pie -Wl,-e_CompatCRTStartup -Wl,--subsystem,console:3.10
 	SRC+=compat.cpp
 	X86_3X=-DX86_3X=1
-endif
-endif
-
-# Current Clang
-ifeq ($(BUILD),Clang)
-ifeq ($(HOST),x86-64)
-$(error not implemented)
-endif
-ifeq ($(HOST),x86)
-$(error not implemented)
-endif
-ifeq ($(HOST),x86_3X)
-$(error not implemented)
 endif
 endif
 
