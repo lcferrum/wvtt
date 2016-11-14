@@ -21,8 +21,7 @@ endif
 # Common section
 RM=rm -f
 UPX=upx
-CPP11=-std=c++11
-CFLAGS=$(CPP11) -D_WIN32_WINNT=0x0600 $(X86_3X) -O2
+CFLAGS=-std=c++11 -D_WIN32_WINNT=0x0600 $(X86_3X) -O2
 LDFLAGS=-static-libgcc -static-libstdc++ -lversion -Wl,--enable-stdcall-fixup -O2 -s
 UPSTREAM_INC=/c/cygwin/usr/i686-w64-mingw32/sys-root/mingw/include/
 SRC=vt.cpp externs.cpp fp_routines.cpp asm_patches.S
