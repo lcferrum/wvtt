@@ -344,7 +344,7 @@ void PrintFileInformation(const char* query_path)
 	//For example, kernel32.dll VERSIONINFO: 
 	//  NT4: FILEVERSION=4.0.1381.7095 ProductVersion="4.00"
 	//  Win98: FILEVERSION=4.10.0.2222 ProductVersion="4.10.2222"
-	//Though FILEVERSION is still useful ecause it doesn't require parsing
+	//Though FILEVERSION is still useful because it doesn't require parsing
 	//N.B.: 
 	//File properties dialog on Win 9x, Win 3.x and Win NT3.x showed StringFileInfo.FileVersion in it's header (not actual VS_FIXEDFILEINFO.FILEVERSION)
 	//On NT systems (starting from NT4, up to and including XP) header showed VS_FIXEDFILEINFO.FILEVERSION instead
