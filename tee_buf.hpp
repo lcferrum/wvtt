@@ -36,7 +36,10 @@ private:
 	};
 	
 	typename std::char_traits<typename OstrT::char_type>::int_type overflow(typename std::char_traits<typename OstrT::char_type>::int_type c) {
-		if (tee_callback) tee_callback((const typename OstrT::char_type*)&c, 1);
+		if (tee_callback) { 
+			typename OstrT::char_type cc=std::char_traits<typename OstrT::char_type>::to_char_type(c);
+			tee_callback(&cc, 1); 
+		}
 		typename std::char_traits<typename OstrT::char_type>::int_type res=((OstreamTeeBuf<OstrT>*)orig_buf)->overflow(c);
 		return no_err?(c==std::char_traits<typename OstrT::char_type>::eof()?std::char_traits<typename OstrT::char_type>::not_eof(c):c):res;
 	};
