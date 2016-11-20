@@ -47,9 +47,6 @@ endif
 ifeq ($(HOST),x86)
 endif
 ifeq ($(HOST),x86_3X)
-	LDFLAGS+=-Wl,-pie -Wl,-e_CompatCRTStartup -Wl,--subsystem,console:3.10
-	SRC+=compat.cpp
-	X86_3X=-DX86_3X=1
 endif
 endif
 
@@ -94,10 +91,15 @@ endif
 ifeq ($(HOST),x86)
 endif
 ifeq ($(HOST),x86_3X)
+endif
+endif
+
+# Common HOST=x86_3X section
+ifeq ($(HOST),x86_3X)
 	LDFLAGS+=-Wl,-pie -Wl,-e_CompatCRTStartup -Wl,--subsystem,console:3.10
 	SRC+=compat.cpp
+	UPXFLAGS+=--strip-relocs=0
 	X86_3X=-DX86_3X=1
-endif
 endif
 
 .PHONY: all clean upx
@@ -115,7 +117,7 @@ $(TARGET): $(OBJ)
 	$(CC) -c -o $@ $< $(CFLAGS) $(INC)
 	
 upx:
-	$(UPX) $(TARGET) ||:
+	$(UPX) $(UPXFLAGS) $(TARGET) ||:
 
 clean:
 	$(RM) $(TARGET) $(OBJ) ||:

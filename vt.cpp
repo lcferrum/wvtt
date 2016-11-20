@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
 	cout_tee_buf.IgnoreOutputErrors(hstdstream==INVALID_HANDLE_VALUE);
 	
 	//This sets fill character to '0' for all subsequent cout outputs 
-	//It only matters when setw in non-zero and it is reset to zero after every output
+	//It only matters when setw is non-zero and it is reset to zero after every output
 	std::cout.fill('0');
 
 	//This prevents base from showing in hex/oct output and hex/oct output becomes uppercase
@@ -123,6 +123,9 @@ int main(int argc, char* argv[])
 		}
 	} else 
 		std::cout<<"GetVersionEx/RtlGetVersion failed or not available!"<<std::endl;
+		
+	std::cout<<std::endl;
+
 	DWORD dwVersion=GetVersion();
 	std::cout<<"GetVersion = "<<COUT_HEX(dwVersion, 8)<<std::endl;
 	if (dwVersion) {
@@ -130,9 +133,9 @@ int main(int argc, char* argv[])
 		std::cout<<"\tMinorVersion = "<<COUT_DEC(HIBYTE(LOWORD(dwVersion)))<<std::endl;
 		//N.B.:
 		//Code below is actual for Win32 API
-		//On Win16 API HIWORD contains MS-DOS version, major number in LOBYTE and minor number in HIBYTE
+		//On Win16 API HIWORD contains MS-DOS version with major number in LOBYTE and minor number in HIBYTE
 		std::cout<<"\tIsNT = "<<COUT_BOOL((dwVersion&0x80000000)==0)<<std::endl;
-		std::cout<<"\tBldNumOrRes = "<<COUT_DEC(HIWORD(dwVersion)&~0x8000)<<std::endl;	//This thing is reserved on Win 9x and build number on NT and Win32s
+		std::cout<<"\tBldNumOrRes = "<<COUT_DEC(HIWORD(dwVersion)&~0x8000)<<std::endl;	//This thing is "reserved" on Win 9x and "build number" on NT and Win32s
 	}
 
 	std::cout<<std::endl;
@@ -397,8 +400,8 @@ void PrintFileInformation(const char* query_path)
 				UINT vqvlen;
 				VS_FIXEDFILEINFO *pffi;
 #ifdef X86_3X
-				//On Win32s VerQueryValue is a thunk to Win16 API and this thunk doesn't work with string literals passed as LP(C)STR
-				//LP(C)STR should be on the stack or heap for this thunk to work
+				//On Win32s VerQueryValue is a thunk to Win16 API and this thunk doesn't work with string literals passed as LPCSTR
+				//LPCSTR should be on the stack or heap for this thunk to work
 				char vi_root[]="\\";
 				if (VerQueryValue((LPVOID)vibuf, vi_root, (LPVOID*)&pffi, &vqvlen)) {
 #else
@@ -409,37 +412,37 @@ void PrintFileInformation(const char* query_path)
 				}
 
 				LANGANDCODEPAGE *plcp;
-				LANGANDCODEPAGE def_lcp={0x0409, 0x0};
 #ifdef X86_3X
 				char vfi_translation[]="\\VarFileInfo\\Translation";
-				if (!VerQueryValue((LPVOID)vibuf, vfi_translation, (LPVOID*)&plcp, &vqvlen)) {
+				if (VerQueryValue((LPVOID)vibuf, vfi_translation, (LPVOID*)&plcp, &vqvlen)) {
 #else
-				if (!VerQueryValue((LPVOID)vibuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &vqvlen)) {
+				if (VerQueryValue((LPVOID)vibuf, "\\VarFileInfo\\Translation", (LPVOID*)&plcp, &vqvlen)) {
 #endif
-					//If no translations found - assume default translation
-					plcp=&def_lcp;
-				}
-				//We are interested only in first translation - most system files have only one VERSIONINFO translation anyway
-				char *value;
-				std::stringstream qstr;
-				qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
-				if (VerQueryValue((LPVOID)vibuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
-					std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
-					got_info=true;
-#ifdef X86_3X
-				} else {
-					//Wow, we got translation but failed at getting string for this translation?
-					//And it was just simple ProductVersion
-					//The thing is if we are on obsolete as hell NT 3.1 - LANGANDCODEPAGE's wLanguage and wCodePage fields may be swapped in here
-					//So let's try the other way around
-					qstr.str(std::string());
-					qstr.clear();
-					qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\ProductVersion";
+					//We are interested only in first translation - most system files have only one VERSIONINFO translation anyway (yeah, even on non-English releases)
+					//For applications that query StringFileInfo structs from wider variety of files it's probably better to select translation based on some priority list (or just show user all the available translations)
+					//But again here we are delaing specifically with system files to get OS version related information
+
+					char *value;
+					std::stringstream qstr;
+					qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
 					if (VerQueryValue((LPVOID)vibuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
 						std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
 						got_info=true;
-					}
+#ifdef X86_3X
+					} else {
+						//Wow, we got translation but failed at getting string for this translation?
+						//And it was just simple ProductVersion
+						//The thing is if we are on obsolete as hell NT 3.1 - LANGANDCODEPAGE's wLanguage and wCodePage fields may be swapped in here
+						//So let's try the other way around
+						qstr.str(std::string());
+						qstr.clear();
+						qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\ProductVersion";
+						if (VerQueryValue((LPVOID)vibuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
+							std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
+							got_info=true;
+						}
 #endif
+					}
 				}
 			}
 		}
