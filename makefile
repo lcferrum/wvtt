@@ -1,6 +1,6 @@
 # Usage:
 # make BUILD=COMPILER HOST=OS_TYPE
-#	Makes VerTest binary
+#	Makes Windows Version Test Tools binary
 # make clean
 #	Cleans directory of executables
 # make upx
