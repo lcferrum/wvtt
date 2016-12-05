@@ -60,7 +60,7 @@ supported by compatible OS.
 
 Windows 3.1 should have Win32s installed to be able to run 32-bit x86 binaries.
 
-3. Where to get
+4. Where to get
 ---------------
 You can compile binary by yourself (refer to COMPILE.TXT that comes with the
 sources) or download binary distribution from GitHub releases section. Project
@@ -68,7 +68,7 @@ homepage at GitHub:
 
 	https://github.com/lcferrum/wvtt
 
-4. Usage
+5. Usage
 --------
 Besides just running binary AS-IS and gazing on it's output (or maybe parsing
 it) you can trash the sources and use whatever part of it you may find suitable

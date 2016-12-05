@@ -214,9 +214,9 @@ int main(int argc, char* argv[])
 	std::cout<<std::endl;
 	
 #ifdef _WIN64
-	std::cout<<"Current EXE build is x86-64"<<std::endl;
+	std::cout<<"This binary is built for x86-64 arch"<<std::endl;
 #else
-	std::cout<<"Current EXE build is x86"<<std::endl;
+	std::cout<<"This binary is built for x86 arch"<<std::endl;
 #endif
 	
 	BOOL wow64=FALSE;
@@ -256,7 +256,7 @@ int main(int argc, char* argv[])
 	bool save_output=false;
 	DWORD conmode;
 	if (hstdstream==INVALID_HANDLE_VALUE) {
-		save_output=MessageBox(NULL, "Output will be saved to VT_OUT.TXT", "vt.exe", MB_ICONINFORMATION|MB_OKCANCEL|MB_DEFBUTTON1)==IDOK;
+		save_output=MessageBox(NULL, "Output will be saved to VT_OUT.TXT.", argv[0], MB_ICONINFORMATION|MB_OKCANCEL|MB_DEFBUTTON1)==IDOK;
 	} else if (GetConsoleMode(hstdstream, &conmode)) {
 		std::cout<<std::endl;
 		std::cout<<"Press S to save output to VT_OUT.TXT or ENTER to continue..."<<std::flush;
