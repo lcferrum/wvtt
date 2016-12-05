@@ -1,0 +1,66 @@
+Windows Version Test Tools compiling instructions
+
+1. License
+----------
+Copyright (c) 2016 Lcferrum
+
+This program comes with no warranty.
+You must use this program at your own risk.
+Licensed under BSD license - see LICENSE.TXT file for details.
+
+2. General
+----------
+Windows Version Test Tools is written using C++11 and is intended to be used on 
+any 32-bit x86 and 64-bit x86-64 versions of Windows. General compilation
+steps:
+
+    1) Download sources from https://github.com/lcferrum/wvtt
+
+    2) Compile it using makefile
+
+    3) For older systems:
+
+        a) Install MSVCRT (if not present)
+		
+        b) Install Win32s (if on Windows 3.1)
+
+3. Specific compiling instructions
+----------------------------------
+Current distribution only supports MinGW-w64, MinGW 4.7.2 and Clang 3.6.2. If
+you intend to use compiled binary on Windows 2000 and later, it is recommended
+to compile using latest MinGW-w64 that can be installed through cygwin. The
+problem is that MinGW-w64 produces binaries that use MSVCRT.DLL version
+incompatible with NT 3.x-4, Windows 9x/Me and Win32s. If you want resulting
+binaries to support those OSes, you should use old versions of MinGW or Clang
+compilers. Latest MinGW version to support needed MSVCRT.DLL and needed minimal
+processor architecture is 4.7.2. Recent versions of MinGW (5.3+) once again
+started to support old MSVCRT.DLL versions, but default architecture is i586
+now. So you need to rebuild GCC if you plan to use resulting binaries on the
+whole variety of OS supported x86/x86-64 platforms (because linked GCC static
+libs are already compiled for this default arch). Either way, MinGW versions
+other than 4.7.2 are not supported by current distribution (though you may add
+support by yourself). Latest pre-built Clang version to support MinGW 4.7.2 is
+3.6.2. Other Clang versions are not supported by current distribution.
+
+When using MinGW-w64 from under cygwin, switch to Windows Version Test Tools
+source directory and type (for x86 build):
+
+    make BUILD=MinGW-w64 HOST=x86
+    
+Or, for x86-64 build:
+
+    make BUILD=MinGW-w64 HOST=x86-64
+	
+To build x86 binary with MinGW 4.7.2 type the following:
+
+    make BUILD=MinGW_472 HOST=x86
+	
+Ordinary MinGW 4.7.2 x86 build supports only Win 9x/NT4 or newer. To support Win
+NT3.x and Win 3.1 w/ Win32s you should make "maximum compatibility" x86 build:
+
+    make BUILD=MinGW_472 HOST=x86_3X
+    
+x86_3X build is featurewise identical to x86, but has some additional
+compatibility hacks enabled. For other compile options please check makefile
+itself.
+ 

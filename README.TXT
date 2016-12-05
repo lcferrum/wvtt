@@ -20,8 +20,7 @@ but not in the case of ProductType=VER_NT_WORKSTATION and ProcessorArchitecture
 =PROCESSOR_ARCHITECTURE_AMD64 when it's Windows XP x64... Yeah, these kind of
 rules.
 
-So why not completing the cycle and implementing mentioned rules besides
-providing tools to mine data for them? 
+So why not complete the cycle and implement such rules? 
 
 First of all, there is no complete set of such rules because Windows is 
 evolving and you need to add new rules every time new version of Windows is
@@ -38,9 +37,28 @@ version.
 
 And finally, this collection shows that by carefully following "test by
 feature" principle it is possible to design the code that can be run almost on
-any version of Windows. Specifically, this code runs on any 32-bit and x86-64
-versions of Windows, i.e.: Windows 3.1 w/ Win32s, Windows NT 3.1, Windows
-95, Windows XP x64, Windows 10, etc.
+any version of Windows. Specifically, this code runs on any 32-bit x86 and
+64-bit x86-64 versions of Windows, i.e.: Windows 3.1 w/ Win32s, Windows NT 3.1,
+Windows 95, Windows XP x64, Windows 10, etc.
+
+3. MSVCRT and OS compatibility
+------------------------------
+Windows Version Test Tools binary compiled using current distribution for x86
+platform with maximum compatibility options requires MSVCRT v2.0 or newer.
+Needed version is already distributed with Windows starting from Win NT4 and
+Win 95. For Win NT3.X and Win 3.1 w/ Win32s you should get MSVCRT separately.
+For example, MSVCRT v2.0 (MSVCRT20.DLL) for Win NT3.X and Win32s (separate
+DLLs) is included with Microsoft Visual C++ 2.0 distribution. One thing to keep
+in mind is that Windows Version Test Tools binary is linked to MSVCRT.DLL and
+not to numbered DLLs (MSVCRTXX.DLL). So if your OS doesn't support non-numbered
+MSVCRT (versions starting from 4.2), you should rename available DLL to
+MSVCRT.DLL and place it besides numbered version in system folder or place it
+in the same folder as Windows Version Test Tools binary.
+
+Binary compiled for x86-64 platform supports any MSVCRT version that is
+supported by compatible OS.
+
+Windows 3.1 should have Win32s installed to be able to run 32-bit x86 binaries.
 
 3. Where to get
 ---------------
