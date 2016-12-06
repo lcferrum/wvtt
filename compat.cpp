@@ -32,28 +32,28 @@ extern "C" void mainCRTStartup();
 
 extern "C" void CompatCRTStartup()
 {
-	if (HMODULE hMsvcrt=GetModuleHandle("msvcrt.dll")) {
-		if (!(_IAT___mb_cur_max=(decltype(_IAT___mb_cur_max))GetProcAddress(hMsvcrt, "__mb_cur_max"))) {
-			_IAT___mb_cur_max=__p___mb_cur_max();
-		}
-		
-		if (!(_IAT__iob=(decltype(_IAT__iob))GetProcAddress(hMsvcrt, "_iob"))) {
-			_IAT__iob=__p__iob();
-		}
-		
-		if (!(_IAT__pctype=(decltype(_IAT__pctype))GetProcAddress(hMsvcrt, "_pctype"))) {
-			_IAT__pctype=__p__pctype();
-		}
-		
-		if (!(_IAT___set_app_type=(decltype(_IAT___set_app_type))GetProcAddress(hMsvcrt, "__set_app_type"))) {
-			_IAT___set_app_type=_COMPAT___set_app_type;
-		}
+	HMODULE hModule=GetModuleHandle("msvcrt.dll");
+	
+	if (!(_IAT___mb_cur_max=(decltype(_IAT___mb_cur_max))GetProcAddress(hModule, "__mb_cur_max"))) {
+		_IAT___mb_cur_max=__p___mb_cur_max();
 	}
 	
-	if (HMODULE hKernel32=GetModuleHandle("kernel32.dll")) {
-		if (!(_IAT_IsDBCSLeadByteEx=(decltype(_IAT_IsDBCSLeadByteEx))GetProcAddress(hKernel32, "IsDBCSLeadByteEx"))) {
-			_IAT_IsDBCSLeadByteEx=_COMPAT_IsDBCSLeadByteEx;
-		}
+	if (!(_IAT__iob=(decltype(_IAT__iob))GetProcAddress(hModule, "_iob"))) {
+		_IAT__iob=__p__iob();
+	}
+	
+	if (!(_IAT__pctype=(decltype(_IAT__pctype))GetProcAddress(hModule, "_pctype"))) {
+		_IAT__pctype=__p__pctype();
+	}
+	
+	if (!(_IAT___set_app_type=(decltype(_IAT___set_app_type))GetProcAddress(hModule, "__set_app_type"))) {
+		_IAT___set_app_type=_COMPAT___set_app_type;
+	}
+	
+	hModule=GetModuleHandle("kernel32.dll");
+	
+	if (!(_IAT_IsDBCSLeadByteEx=(decltype(_IAT_IsDBCSLeadByteEx))GetProcAddress(hModule, "IsDBCSLeadByteEx"))) {
+		_IAT_IsDBCSLeadByteEx=_COMPAT_IsDBCSLeadByteEx;
 	}
 		
 	OriginalCRTStarup();
