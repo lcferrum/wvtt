@@ -7,7 +7,7 @@
 #include <functional>
 
 #define CreateOstreamTeeBuf(s, n, f) OstreamTeeBuf<decltype(s)> n(s, f)
-#define BindStdStringAppend(s) std::bind<decltype(s)&(decltype(s)::*)(decltype(s)::const_pointer, size_t)>(&decltype(s)::append, &s, std::placeholders::_1, std::placeholders::_2)
+#define BindStdStringAppend(s) std::bind<decltype(s)&(decltype(s)::*)(decltype(s)::const_pointer, decltype(s)::size_type)>(&decltype(s)::append, &s, std::placeholders::_1, std::placeholders::_2)
 
 template <class OstrT>
 class OstreamTeeBuf: private std::basic_streambuf<typename OstrT::char_type> {
