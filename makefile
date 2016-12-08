@@ -84,7 +84,7 @@ endif
 ifeq ($(BUILD),Clang_362)
 	CC=clang++
 	INC=-I$(UPSTREAM_INC)
-	CFLAGS+=-target i386-pc-windows-gnu -march=i386 -Wno-dll-attribute-on-redeclaration -Wno-ignored-attributes -Wno-deprecated-register -Wno-inconsistent-dllimport -Wno-unused-value -DUMDF_USING_NTSTATUS
+	CFLAGS+=-target i386-pc-windows-gnu -march=i386 -Wno-ignored-pragmas -Wno-dll-attribute-on-redeclaration -Wno-ignored-attributes -Wno-deprecated-register -Wno-inconsistent-dllimport -Wno-unused-value -DUMDF_USING_NTSTATUS
 ifeq ($(HOST),x86-64)
 $(error not implemented)
 endif

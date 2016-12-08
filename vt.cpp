@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 	Externs::MakeInstance();
 	
 	std::string cout_copy;
-	CreateOstreamTeeBuf(std::cout, cout_tee_buf, std::bind<std::string&(std::string::*)(const char*, size_t)>(&std::string::append, &cout_copy, std::placeholders::_1, std::placeholders::_2));
+	CreateOstreamTeeBuf(std::cout, cout_tee_buf, BindStdStringAppend(cout_copy));
 	HANDLE hstdstream=GetStdHandle(STD_OUTPUT_HANDLE);
 	cout_tee_buf.IgnoreOutputErrors(hstdstream==INVALID_HANDLE_VALUE);
 	
