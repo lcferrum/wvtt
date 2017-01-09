@@ -231,7 +231,7 @@ int main(int argc, char* argv[])
 	
 	if (fnwine_get_version) {
 		//Test for Wine
-		std::cout<<"wine_get_version() = "<<fnwine_get_version()<<std::endl;
+		std::cout<<"wine_get_version = "<<fnwine_get_version()<<std::endl;
 	} else {
 		std::cout<<"Can't load wine_get_version from ntdll.dll!"<<std::endl;
 	}
@@ -268,9 +268,17 @@ int main(int argc, char* argv[])
 		save_output=command=='s';
 	}	
 	if (save_output) {
-		std::ofstream ofile("VT_OUT.TXT", std::ofstream::trunc);
-		ofile<<cout_copy;
-		ofile.close();
+		char moddir[MAX_PATH];
+		DWORD moddirlen=GetModuleFileName(NULL, moddir, MAX_PATH);
+		if (moddirlen&&moddirlen!=MAX_PATH) {
+			if (char* moddirend=strrchr(moddir, '\\')) {
+				*moddirend='\0';
+				strcat(moddir, "\\VT_OUT.TXT");
+				std::ofstream ofile(moddir, std::ofstream::trunc);
+				ofile<<cout_copy;
+				ofile.close();
+			}
+		}
 	}
 	
 	return 0;
