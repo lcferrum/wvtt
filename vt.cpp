@@ -231,7 +231,7 @@ int main(int argc, char* argv[])
 	
 	if (fnwine_get_version) {
 		//Test for Wine
-		std::cout<<"wine_get_version = "<<fnwine_get_version()<<std::endl;
+		std::cout<<"wine_get_version = \""<<fnwine_get_version()<<"\""<<std::endl;
 	} else {
 		std::cout<<"Can't load wine_get_version from ntdll.dll!"<<std::endl;
 	}
@@ -252,13 +252,15 @@ int main(int argc, char* argv[])
 	PrintFileInformation("NTKERN.VXD");
 	
 	cout_tee_buf.Deactivate();
+	std::cout<<std::endl;
 	
 	bool save_output=false;
 	DWORD conmode;
-	if (hstdstream==INVALID_HANDLE_VALUE) {
+	if (hstdstream==INVALID_HANDLE_VALUE||fnwine_get_version) {
+		//If standard stream handle is invalid, obviously we can't get input from console
+		//Also under Wine _getch() can be unusable (always returns EOF)
 		save_output=MessageBox(NULL, "Output will be saved to VT_OUT.TXT.", argv[0], MB_ICONINFORMATION|MB_OKCANCEL|MB_DEFBUTTON1)==IDOK;
 	} else if (GetConsoleMode(hstdstream, &conmode)) {
-		std::cout<<std::endl;
 		std::cout<<"Press S to save output to VT_OUT.TXT or ENTER to continue..."<<std::flush;
 		
 		char command;
@@ -268,17 +270,9 @@ int main(int argc, char* argv[])
 		save_output=command=='s';
 	}	
 	if (save_output) {
-		char moddir[MAX_PATH];
-		DWORD moddirlen=GetModuleFileName(NULL, moddir, MAX_PATH);
-		if (moddirlen&&moddirlen!=MAX_PATH) {
-			if (char* moddirend=strrchr(moddir, '\\')) {
-				*moddirend='\0';
-				strcat(moddir, "\\VT_OUT.TXT");
-				std::ofstream ofile(moddir, std::ofstream::trunc);
-				ofile<<cout_copy;
-				ofile.close();
-			}
-		}
+		std::ofstream ofile("VT_OUT.TXT", std::ofstream::trunc);
+		ofile<<cout_copy;
+		ofile.close();
 	}
 	
 	return 0;
