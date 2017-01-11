@@ -252,15 +252,18 @@ int main(int argc, char* argv[])
 	PrintFileInformation("NTKERN.VXD");
 	
 	cout_tee_buf.Deactivate();
-	std::cout<<std::endl;
 	
 	bool save_output=false;
 	DWORD conmode;
-	if (hstdstream==INVALID_HANDLE_VALUE||fnwine_get_version) {
-		//If standard stream handle is invalid, obviously we can't get input from console
-		//Also under Wine _getch() can be unusable (always returns EOF)
+	if (hstdstream==INVALID_HANDLE_VALUE) {
+		//If standard input stream handle is invalid, obviously we can't get input from console
 		save_output=MessageBox(NULL, "Output will be saved to VT_OUT.TXT.", argv[0], MB_ICONINFORMATION|MB_OKCANCEL|MB_DEFBUTTON1)==IDOK;
-	} else if (GetConsoleMode(hstdstream, &conmode)) {
+	} else if (GetConsoleMode(hstdstream, &conmode)&&!fnwine_get_version) {
+		//Under Wine _getch() may not work properly and always return EOF
+		//Also, even with no input redirection, standard input stream may or may not be attached to console
+		//So, for the consistency under Wine, do not ask to save output here
+		std::cout<<std::endl;
+		
 		std::cout<<"Press S to save output to VT_OUT.TXT or ENTER to continue..."<<std::flush;
 		
 		char command;
