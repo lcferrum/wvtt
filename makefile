@@ -102,10 +102,12 @@ ifeq ($(HOST),x86_3X)
 	X86_3X=-DX86_3X=1
 endif
 
-.PHONY: all clean upx
+.PHONY: all clean upx exe
 .INTERMEDIATE: $(OBJ)
 
-all: $(TARGET)
+all: exe upx
+
+exe: $(SRC) $(TARGET)
 
 $(TARGET): $(OBJ) 
 	$(CC) -o $@ $(OBJ) $(LDFLAGS)

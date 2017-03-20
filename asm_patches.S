@@ -57,7 +57,7 @@ seh_handler:
 	 0x08 Pointer to our own EXCEPTION_REGISTRATION struct (that also pose as stack top right after this exception handler was set)
 	 0x0C Pointer to CONTEXT struct
 	 0x10 Pointer to DISPATCHER_CONTEXT struct
-	We can MOV to EAX one of EXCEPTION_DISPOSITION values and RET from handler function (we will return to OS SEH handling code and not to GetSystemMetricsSehWrapper callee)
+	We can MOV to EAX one of EXCEPTION_DISPOSITION values and RET from handler function (we will return to OS SEH handling code and not to GetSystemMetricsSehWrapper caller)
 	Or we can forget about returning from handler function altogether and just get back to our current function
 	*/
 	movl 0x04(%esp), %eax             /* Move pointer to EXCEPTION_RECORD to EAX */
@@ -67,8 +67,8 @@ seh_handler:
 	jne not_handled
 	movl 0x08(%esp), %eax             /* Move pointer to EXCEPTION_REGISTRATION to EAX */
 	pushl $0                          /* Calling RtlUnwind(EXCEPTION_REGISTRATION*, OFFSET rtl_unwind_ret, NULL, NULL) */
-	pushl $0
-	pushl $rtl_unwind_ret
+	pushl $0                          /* Purpose of RtlUnwind is to call __finally blocks of all the non-triggered exception handlers and uninstall them (by setting [FS:0] to previous handler) one by one */
+	pushl $rtl_unwind_ret             /* Our own exception handler doesn't have __finally-like statements so it jumps to not_handled if EXCEPTION_RECORD.ExceptionFlags contains EH_UNWINDING */
 	pushl %eax
 	call *__imp__RtlUnwind            /* It's STDCALL function */
 rtl_unwind_ret:
@@ -83,5 +83,5 @@ rtl_unwind_ret:
 	ret $8                            /* Clean up call stack (8 bytes) conforming to STDCALL convention */    
 not_handled:
 	movl $1, %eax                     /* Return ExceptionContinueSearch (from seh_handler) */
-	ret                               /* Conforming to CDECL callee is responsible for cleaning up the stack */
+	ret                               /* Conforming to CDECL caller is responsible for cleaning up the stack */
 #endif
