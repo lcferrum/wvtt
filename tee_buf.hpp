@@ -21,7 +21,7 @@ private:
 	//Hacky hacky hacky...
 	//Class tries to redirect all the output to original ostream/wcostream buffer
 	//This is not intended behaviour of basic_streambuf descendant
-	//We are expected to provide our own buffer and handle overflow and sync functions like a good descendant wood do
+	//We are expected to provide our own buffer and handle overflow and sync functions like a good descendant would do
 	//And only while behaving like proper basic_streambuf we are allowed to do whatever we want with data passed (like forwarding it to original buffer via public functions)
 	//There is a perfect reason for this - we don't know how basic_streambuf will be used and by who
 	//By conforming to the standard we are ensuring that whoever use it, if he also conforms to standard, will get expected results
