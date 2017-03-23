@@ -59,7 +59,7 @@ void FPRoutines::FillDriveList()
 	//Though there are two caveats:
 	//	1) Don't append drive with backslash or NtCreateFile will open root directory instead (imagine it's floppy drive without disk inserted)
 	//	2) Under NT4 NtQueryObject will fail with every drive letter except real mapped network drives (though ObjectNameInformation still gets filled with proper path)
-	//Also, when mapped network drive being queried - code won't force system to check whether drive in offline or not
+	//Also, when mapped network drive being queried - code won't force system to check whether drive is offline or not
 	//This means code won't stop there to wait for system response, which is good
 	//The only time when there is really delay in execution is when system is in the process of changing drive status (e.g. explorer trying to access no longer available network drive)
 	//Only in this case when trying to open such drive code will wait for system to update drive status
@@ -109,7 +109,7 @@ bool FPRoutines::UnredirectWow64FsPath(const char* fpath, std::string &real_fpat
 	//Now we use NtQueryObject to get canonical NT path (\Device\...) from opened handle
 	//These paths are not affected by WoW64 redirection so returned path is the real one
 	//After that we get WoW64 directory (with GetSystemWow64Directory) and convert it to NT path the same way as original path
-	//Find out if original path has something to do with WoW64 redirection by checing if it is prefixed by WoW64 directory
+	//Find out if original path has something to do with WoW64 redirection by checking if it is prefixed by WoW64 directory
 	//If not - just return original path because it is not actually redirected
 	//Now all is left is to convert original path in it's NT canonical form back to it's Win32 equivalent
 	//In this case it is simple because we already know Win32 equivalent of it's device prefix which is WoW64 directory
@@ -395,7 +395,6 @@ bool FPRoutines::SearchPathWrapper(const char* fname, const char* spath, const c
 	//Supplying extension (should start with period character, '.') changes behavior in the following way:
 	//If non relative filename, before applying GetFullPathName function checks if file exists and if not - appends extension and tries this way
 	//If relative filename and filename lacks extension, it is appended before the search commences
-	//If extension is supplied, it should with period (.)
 	
 	if (DWORD buflen=SearchPath(spath, fname, ext, 0, NULL, NULL)) {
 		char full_path[buflen];

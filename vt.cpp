@@ -28,7 +28,7 @@ typedef struct _LANGANDCODEPAGE {
 #define VER_PLATFORM_WIN32_CE	3
 
 //std::cout treats char as, obviously, char and prints it as such - not it's numerical value
-//If numerical value is needed, instead of static cast to ULONG_PTR unary addition operator can be used to force printing numerical value
+//If numerical value is needed, instead of static cast to ULONG_PTR, unary addition operator can be used to force printing numerical value
 //Also, these defines only work correctly with specific std::ios::fmtflags and std::ios::fill (see below in main)
 //Dec_width and hex_width is in chars
 #define COUT_DEC(dec_int)				+(dec_int)
@@ -256,11 +256,11 @@ int main(int argc, char* argv[])
 	bool save_output=false;
 	DWORD conmode;
 	if (hstdstream==INVALID_HANDLE_VALUE) {
-		//If standard input stream handle is invalid, obviously we can't get input from console
+		//If standard output stream handle is invalid, chances are input stream is also invalid, so obviously we can't get input from console
 		save_output=MessageBox(NULL, "Output will be saved to VT_OUT.TXT.", argv[0], MB_ICONINFORMATION|MB_OKCANCEL|MB_DEFBUTTON1)==IDOK;
 	} else if (GetConsoleMode(hstdstream, &conmode)&&!fnwine_get_version) {
-		//Under Wine _getch() may not work properly and always return EOF
-		//Also, even with no input redirection, standard input stream may or may not be attached to console
+		//Under Wine _getch() may not work properly and always return EOF (depends on Wine version)
+		//Also, even when GetConsoleMode succeeds here, it doesn't mean that standard input stream is attached to actual console
 		//So, for the consistency under Wine, do not ask to save output here
 		std::cout<<std::endl;
 		
