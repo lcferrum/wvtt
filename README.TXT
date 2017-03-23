@@ -14,11 +14,11 @@ It is not "yet another all-in-one class to get Windows version". Nope. Rather
 it is a collection of tools that can be used in such classes (or functions). It
 won't tell you Windows version right away, but show a lot of various bits of
 information, collected from the OS, that can be processed using some algorithm
-to determine Windows version. Something like: ...blah, blah, blah, if
+to determine Windows version. Something like: ...blah blah blah, if
 MajorVersion=5 and MinorVersion=2 - it's Windows Server 2003 or Server 2003 R2
 if GetSystemMetrics(SM_SERVERR2)=TRUE, but not in the case of ProductType
 =VER_NT_WORKSTATION and ProcessorArchitecture=PROCESSOR_ARCHITECTURE_AMD64 when
-it's Windows XP x64, blah, blah, blah...
+it's Windows XP x64, blah blah blah...
 
 So why not publish algorithm itself? 
 
