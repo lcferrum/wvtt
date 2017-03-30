@@ -50,8 +50,8 @@ BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKE
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
 void PrintFileInformation(const char* query_path);
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
-BOOL GetFileVersionInfoWrapper(LPCTSTR lptstrFilename, DWORD dwHandle, DWORD dwLen, LPVOID lpData);
-DWORD GetFileVersionInfoSizeWrapper(LPCTSTR lptstrFilename, LPDWORD lpdwHandle);
+BOOL GetFileVersionInfoWrapper(LPCSTR lpstrFilename, DWORD dwHandle, DWORD dwLen, LPVOID lpData);
+DWORD GetFileVersionInfoSizeWrapper(LPCSTR lpstrFilename, LPDWORD lpdwHandle);
 
 #ifdef __clang__
 //Obscure clang++ bug - it reports "multiple definition" of std::setfill() and __gnu_cxx::operator==() when statically linking with libstdc++
@@ -134,20 +134,26 @@ int main(int argc, char* argv[])
 	DWORD dwVersion=GetVersion();
 	std::cout<<"GetVersion = "<<COUT_FHEX(dwVersion, 8)<<std::endl;
 	if (dwVersion) {
+		//This information is mostly taken from MSDN Library October 1999
+		//Newer MSDN versions omit non-NT related info for GetVersion
+		
 		std::cout<<"\tMajorVersion = "<<COUT_ADEC(LOBYTE(LOWORD(dwVersion)))<<std::endl;
 		std::cout<<"\tMinorVersion = "<<COUT_ADEC(HIBYTE(LOWORD(dwVersion)))<<std::endl;
-		//N.B.:
-		//Code below is actual for Win32 API
-		//On Win16 API HIWORD contains MS-DOS version with major number in LOBYTE and minor number in HIBYTE
 		std::cout<<"\tIsNT = "<<COUT_BOOL((dwVersion&0x80000000)==0)<<std::endl;
-		std::cout<<"\tBldNumOrRes = "<<COUT_ADEC(HIWORD(dwVersion)&~0x8000)<<std::endl;	//This thing is "reserved" on Win 9x and "build number" on NT and Win32s
+		//This thing is "reserved" on Win 9x and "build number" on NT and Win32s
+		//On Win 9x/Me HIWORD(dwVersion) is always 0xC000, so "reserved" will always be 0x4000
+		std::cout<<"\tBldNumOrRes = "<<COUT_ADEC(HIWORD(dwVersion)&~0x8000)<<" = "<<COUT_FHEX(HIWORD(dwVersion)&~0x8000, 4)<<std::endl;
+		
+		//N.B.:
+		//HIWORD(dwVersion) treatment above is actual for Win32 API
+		//On Win16 API HIWORD(dwVersion) contains MS-DOS version with major number in LOBYTE and minor number in HIBYTE
 	}
 
 	std::cout<<std::endl;
 
 	std::cout<<"GetSystemMetrics:"<<std::endl;
 	if (!SystemMetrics.Matches([](const std::string& label, DWORD value, size_t idx) {
-		//All the system metrics reside in aiSysMet member of SERVERINFO struct (aka _gpsi)
+		//On NT all the system metrics reside in aiSysMet member of SERVERINFO struct (aka _gpsi)
 		//SERVERINFO is a global internal system structure common for all the processes
 		//aiSysMet is an int array of fixed length - nIndex passed to GetSystemMetrics actually is an index to this array
 		//So passed nIndex can be potentially out of bounds and lead to memory access violation
@@ -157,6 +163,7 @@ int main(int argc, char* argv[])
 		//The struct is few kilobytes in size and aiSysMet starts somewhere within first kilobyte
 		//But large deviations like 1000-th element behind real maximum will surely get you in trouble
 		//Real GetSystemMetrics index range is 0-43 for NT 3.1 and 0-70 for NT 3.5 - everything else is out of bounds
+		//On Win32s and 9x/Me system metrics also reside in system array but here GetSystemMetrics always checks index validness
 #if !defined(_WIN64)&&defined(X86_3X)
 		int result;
 		if (GetSystemMetricsSehWrapper(value, &result)) {
@@ -243,15 +250,20 @@ int main(int argc, char* argv[])
 	
 	std::cout<<std::endl;
 	
+	//There are tons of register values that can be used to detect specific service pack, edition or suite variations not covered by functions above
+	//They are often exclusive to some specific minor version and have no meaning or absent on other versions
+	//Below are most common values that will just give you a general idea of what OS version you are runnning
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName");
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "BuildLab");
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "BuildLabEx");
-	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CSDBuildNumber");
+	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CSDVersion");
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\ProductOptions", "ProductType");
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion", "ProductName");
 	
 	std::cout<<std::endl;
 	
+	//As with registry values there can be various files that can hint on specific OS version variations which are otherwise impossible to detect with functions above
+	//Below are just most common ones used in version detection
 	PrintFileInformation("KERNEL32.DLL");
 	PrintFileInformation("USER.EXE");
 	PrintFileInformation("NTKERN.VXD");
@@ -333,11 +345,23 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 	bool success=false;
 	
 	if (RegOpenKeyEx(hive, keypath, 0, KEY_READ, &reg_key)==ERROR_SUCCESS) {
-		if (RegQueryValueEx(reg_key, value, NULL, &key_type, NULL, &buflen)==ERROR_SUCCESS&&(key_type==REG_SZ||key_type==REG_EXPAND_SZ)) {
-			char regbuf[buflen];
-			if (RegQueryValueEx(reg_key, value, NULL, &key_type, (LPBYTE)regbuf, &buflen)==ERROR_SUCCESS&&(key_type==REG_SZ||key_type==REG_EXPAND_SZ)&&regbuf[buflen-1]=='\0') {
-				std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<":\n\t\""<<regbuf<<"\""<<std::endl;
-				success=true;
+		if (RegQueryValueEx(reg_key, value, NULL, &key_type, NULL, &buflen)==ERROR_SUCCESS) {
+			BYTE regbuf[buflen+sizeof(char)];	//+1 char for possible missing NULL terminator in case of REG_SZ and REG_EXPAND_SZ
+			if (RegQueryValueEx(reg_key, value, NULL, &key_type, regbuf, &buflen)==ERROR_SUCCESS) {
+				switch (key_type) {
+					case REG_SZ:
+					case REG_EXPAND_SZ:
+						regbuf[buflen]='\0';	//RegQueryValueEx fails if buffer is too small and it is already one byte bigger than needed, so this won't cause access violation
+						std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<":\n\t\""<<(char*)regbuf<<"\""<<std::endl;
+						success=true;
+						break;
+					case REG_DWORD:
+						if (buflen==sizeof(DWORD)) {
+							std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<":\n\t"<<COUT_ADEC(*(DWORD*)regbuf)<<" = "<<COUT_FHEX(*(DWORD*)regbuf, 8)<<std::endl;
+							success=true;
+						}
+						break;
+				}
 			}
 		}
 		RegCloseKey(reg_key);
@@ -347,7 +371,7 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 		std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<" - error while opening!"<<std::endl;
 }
 
-BOOL GetFileVersionInfoWrapper(LPCSTR lpcstrFilename, DWORD dwHandle, DWORD dwLen, LPVOID lpData)
+BOOL GetFileVersionInfoWrapper(LPCSTR lpstrFilename, DWORD dwHandle, DWORD dwLen, LPVOID lpData)
 {
 	//StringFileInfo is considered non-fixed part of VERSIONINFO
 	//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use StringFileInfo from this file instead of original one
@@ -356,20 +380,34 @@ BOOL GetFileVersionInfoWrapper(LPCSTR lpcstrFilename, DWORD dwHandle, DWORD dwLe
 	//The trick is to use GetFileVersionInfoEx with FILE_VER_GET_NEUTRAL flag to get StringFileInfo from actual file and not from MUI
 	//GetFileVersionInfoEx is available since Vista and only in UNICODE version
 	
-	if (fnGetFileVersionInfoEx&&fnGetFileVersionInfoSizeEx) {
-		return fnGetFileVersionInfoEx(FILE_VER_GET_NEUTRAL, lpcstrFilename, dwHandle, dwLen, lpData);
+	if (fnGetFileVersionInfoEx) {
+		if (int chars_num=MultiByteToWideChar(CP_ACP, 0, lpstrFilename, -1, NULL, 0)) {
+			wchar_t w_fname[chars_num];
+			if (MultiByteToWideChar(CP_ACP, 0, lpstrFilename, -1, w_fname, chars_num)) {
+				return fnGetFileVersionInfoEx(FILE_VER_GET_NEUTRAL, w_fname, dwHandle, dwLen, lpData);
+			}
+		}
+			
+		return FALSE;
 	} else
-		return GetFileVersionInfo(lpcstrFilename, dwHandle, dwLen, lpData);
+		return GetFileVersionInfo(lpstrFilename, dwHandle, dwLen, lpData);
 }
 
-DWORD GetFileVersionInfoSizeWrapper(LPCSTR lpcstrFilename, LPDWORD lpdwHandle)
+DWORD GetFileVersionInfoSizeWrapper(LPCSTR lpstrFilename, LPDWORD lpdwHandle)
 {
 	//See comments on GetFileVersionInfoWrapper
 	
-	if (fnGetFileVersionInfoEx&&fnGetFileVersionInfoSizeEx)
-		return fnGetFileVersionInfoSizeEx(FILE_VER_GET_NEUTRAL, lpcstrFilename, lpdwHandle);
-	else
-		return GetFileVersionInfoSize(lpcstrFilename, lpdwHandle);
+	if (fnGetFileVersionInfoSizeEx) {
+		if (int chars_num=MultiByteToWideChar(CP_ACP, 0, lpstrFilename, -1, NULL, 0)) {
+			wchar_t w_fname[chars_num];
+			if (MultiByteToWideChar(CP_ACP, 0, lpstrFilename, -1, w_fname, chars_num)) {
+				return fnGetFileVersionInfoSizeEx(FILE_VER_GET_NEUTRAL, w_fname, lpdwHandle);
+			}
+		}
+			
+		return FALSE;
+	} else
+		return GetFileVersionInfoSize(lpstrFilename, lpdwHandle);
 }
 
 void PrintFileInformation(const char* query_path) 
