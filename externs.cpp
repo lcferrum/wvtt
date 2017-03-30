@@ -3,6 +3,8 @@
 pRtlGetVersion fnRtlGetVersion=NULL;
 pGetNativeSystemInfo fnGetNativeSystemInfo=NULL;
 pIsWow64Process fnIsWow64Process=NULL;
+pGetFileVersionInfoEx fnGetFileVersionInfoEx=NULL;
+pGetFileVersionInfoSizeEx fnGetFileVersionInfoSizeEx=NULL;
 pGetProductInfo fnGetProductInfo=NULL;
 pGetVersionExA fnGetVersionExA=NULL;
 pNtCreateFile fnNtCreateFile=NULL;
@@ -18,7 +20,7 @@ pwine_get_version fnwine_get_version=NULL;
 std::unique_ptr<Externs> Externs::instance;
 
 Externs::Externs(): 
-	hNtDll(NULL), hKernel32(NULL)
+	hNtDll(NULL), hKernel32(NULL), hVersion(NULL)
 {
 	LoadFunctions();
 }
@@ -42,6 +44,7 @@ void Externs::LoadFunctions()
 {
 	hNtDll=LoadLibrary("ntdll.dll");
 	hKernel32=LoadLibrary("kernel32.dll");
+	hVersion=LoadLibrary("version.dll");
 
 	if (hNtDll) {
 		fnRtlGetVersion=(pRtlGetVersion)GetProcAddress(hNtDll, "RtlGetVersion");
@@ -62,6 +65,11 @@ void Externs::LoadFunctions()
 		fnGetVersionExA=(pGetVersionExA)GetProcAddress(hKernel32, "GetVersionExA");
 		fnGetFileAttributesW=(pGetFileAttributesW)GetProcAddress(hKernel32, "GetFileAttributesW");
 	}
+	
+	if (hVersion) {
+		fnGetFileVersionInfoSizeEx=(pGetFileVersionInfoSizeEx)GetProcAddress(hVersion, "GetFileVersionInfoSizeExW");
+		fnGetFileVersionInfoEx=(pGetFileVersionInfoEx)GetProcAddress(hVersion, "GetFileVersionInfoExW");
+	}
 }
 
 //And here we are testing for NULLs because LoadLibrary can fail in method above
@@ -69,4 +77,5 @@ void Externs::UnloadFunctions()
 {
 	if (hNtDll) FreeLibrary(hNtDll);
 	if (hKernel32) FreeLibrary(hKernel32);
+	if (hVersion) FreeLibrary(hVersion);
 }

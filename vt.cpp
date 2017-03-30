@@ -13,6 +13,8 @@
 extern pRtlGetVersion fnRtlGetVersion;
 extern pGetNativeSystemInfo fnGetNativeSystemInfo;
 extern pIsWow64Process fnIsWow64Process;
+extern pGetFileVersionInfoEx fnGetFileVersionInfoEx;
+extern pGetFileVersionInfoSizeEx fnGetFileVersionInfoSizeEx;
 extern pGetProductInfo fnGetProductInfo;
 extern pGetVersionExA fnGetVersionExA;
 extern pwine_get_version fnwine_get_version;
@@ -23,17 +25,18 @@ typedef struct _LANGANDCODEPAGE {
 } LANGANDCODEPAGE;
 
 //Defines not found in MinGW's windows.h/winnt.h:
-#define SM_WEPOS			0x2003
-#define SM_FUNDAMENTALS		0x2004
+#define SM_WEPOS				0x2003
+#define SM_FUNDAMENTALS			0x2004
 #define VER_PLATFORM_WIN32_CE	3
+#define FILE_VER_GET_NEUTRAL	0x002
 
 //std::cout treats char as, obviously, char and prints it as such - not it's numerical value
 //If numerical value is needed, instead of static cast to ULONG_PTR, unary addition operator can be used to force printing numerical value
 //Also, these defines only work correctly with specific std::ios::fmtflags and std::ios::fill (see below in main)
 //Dec_width and hex_width is in chars
-#define COUT_DEC(dec_int)				+(dec_int)
-#define COUT_FIX(dec_int, dec_width)	std::setw(dec_width)<<+(dec_int)
-#define COUT_HEX(hex_int, hex_width)	"0x"<<std::hex<<std::setw(hex_width)<<+(hex_int)<<std::dec
+#define COUT_ADEC(dec_int)				+(dec_int)
+#define COUT_FDEC(dec_int, dec_width)	std::setw(dec_width)<<+(dec_int)
+#define COUT_FHEX(hex_int, hex_width)	"0x"<<std::hex<<std::setw(hex_width)<<+(hex_int)<<std::dec
 #define COUT_BOOL(bool_val)				((bool_val)?"TRUE":"FALSE")
 
 LabeledValues PlatfromIds(LABELED_VALUES_ARG(VER_PLATFORM_WIN32s, VER_PLATFORM_WIN32_WINDOWS, VER_PLATFORM_WIN32_NT, VER_PLATFORM_WIN32_CE));
@@ -47,6 +50,8 @@ BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKE
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
 void PrintFileInformation(const char* query_path);
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
+BOOL GetFileVersionInfoWrapper(LPCTSTR lptstrFilename, DWORD dwHandle, DWORD dwLen, LPVOID lpData);
+DWORD GetFileVersionInfoSizeWrapper(LPCTSTR lptstrFilename, LPDWORD lpdwHandle);
 
 #ifdef __clang__
 //Obscure clang++ bug - it reports "multiple definition" of std::setfill() and __gnu_cxx::operator==() when statically linking with libstdc++
@@ -87,39 +92,39 @@ int main(int argc, char* argv[])
 	
 	OSVERSIONINFOEX osvi_ex;
 	if (GetVersionWrapper(osvi_ex)) {
-		std::cout<<"\tdwMajorVersion = "<<COUT_DEC(osvi_ex.dwMajorVersion)<<std::endl;
-		std::cout<<"\tdwMinorVersion = "<<COUT_DEC(osvi_ex.dwMinorVersion)<<std::endl;
-		std::cout<<"\tdwBuildNumber = "<<COUT_DEC(osvi_ex.dwBuildNumber)<<" = "<<COUT_DEC(HIBYTE(HIWORD(osvi_ex.dwBuildNumber)))<<"."<<COUT_DEC(LOBYTE(HIWORD(osvi_ex.dwBuildNumber)))<<"."<<COUT_DEC((DWORD)LOWORD(osvi_ex.dwBuildNumber))<<std::endl;
-		std::cout<<"\tdwPlatformId = "<<COUT_HEX(osvi_ex.dwPlatformId, 8)<<std::endl;
+		std::cout<<"\tdwMajorVersion = "<<COUT_ADEC(osvi_ex.dwMajorVersion)<<std::endl;
+		std::cout<<"\tdwMinorVersion = "<<COUT_ADEC(osvi_ex.dwMinorVersion)<<std::endl;
+		std::cout<<"\tdwBuildNumber = "<<COUT_ADEC(osvi_ex.dwBuildNumber)<<" = "<<COUT_ADEC(HIBYTE(HIWORD(osvi_ex.dwBuildNumber)))<<"."<<COUT_ADEC(LOBYTE(HIWORD(osvi_ex.dwBuildNumber)))<<"."<<COUT_ADEC((DWORD)LOWORD(osvi_ex.dwBuildNumber))<<std::endl;
+		std::cout<<"\tdwPlatformId = "<<COUT_FHEX(osvi_ex.dwPlatformId, 8)<<std::endl;
 		PlatfromIds.Enums(osvi_ex.dwPlatformId, [](const std::string& label, DWORD value, bool unknown, size_t idx){
 			if (unknown)
-				std::cout<<"\t\tUNKNOWN VALUE ("<<COUT_HEX(value, 8)<<")"<<std::endl;
+				std::cout<<"\t\tUNKNOWN VALUE ("<<COUT_FHEX(value, 8)<<")"<<std::endl;
 			else
 				std::cout<<"\t\t"<<label<<std::endl;
 			return false;
 		});
-		std::cout<<"\tszCSDVersion = \""<<COUT_DEC(osvi_ex.szCSDVersion)<<"\""<<std::endl;
+		std::cout<<"\tszCSDVersion = \""<<COUT_ADEC(osvi_ex.szCSDVersion)<<"\""<<std::endl;
 		if (osvi_ex.dwOSVersionInfoSize==sizeof(OSVERSIONINFOEX)) {
-			std::cout<<"\twServicePackMajor = "<<COUT_DEC(osvi_ex.wServicePackMajor)<<std::endl;
-			std::cout<<"\twServicePackMinor = "<<COUT_DEC(osvi_ex.wServicePackMinor)<<std::endl;
-			std::cout<<"\twSuiteMask = "<<COUT_HEX(osvi_ex.wSuiteMask, 4)<<std::endl;
+			std::cout<<"\twServicePackMajor = "<<COUT_ADEC(osvi_ex.wServicePackMajor)<<std::endl;
+			std::cout<<"\twServicePackMinor = "<<COUT_ADEC(osvi_ex.wServicePackMinor)<<std::endl;
+			std::cout<<"\twSuiteMask = "<<COUT_FHEX(osvi_ex.wSuiteMask, 4)<<std::endl;
 			if (!SuiteMasks.Flags(osvi_ex.wSuiteMask, [](const std::string& label, DWORD value, bool unknown, size_t idx){
 				if (unknown)
-					std::cout<<"\t\tUNKNOWN FLAG ("<<COUT_HEX(value, 4)<<")"<<std::endl;
+					std::cout<<"\t\tUNKNOWN FLAG ("<<COUT_FHEX(value, 4)<<")"<<std::endl;
 				else
 					std::cout<<"\t\t"<<label<<std::endl;
 				return false;
 			}))
 				std::cout<<"\t\tNO FLAGS SET"<<std::endl;
-			std::cout<<"\twProductType = "<<COUT_HEX(osvi_ex.wProductType, 2)<<std::endl;
+			std::cout<<"\twProductType = "<<COUT_FHEX(osvi_ex.wProductType, 2)<<std::endl;
 			ProductTypes.Enums(osvi_ex.wProductType, [](const std::string& label, DWORD value, bool unknown, size_t idx){
 				if (unknown)
-					std::cout<<"\t\tUNKNOWN VALUE ("<<COUT_HEX(value, 2)<<")"<<std::endl;
+					std::cout<<"\t\tUNKNOWN VALUE ("<<COUT_FHEX(value, 2)<<")"<<std::endl;
 				else
 					std::cout<<"\t\t"<<label<<std::endl;
 				return false;
 			});
-			std::cout<<"\twReserved = "<<COUT_HEX(osvi_ex.wReserved, 2)<<std::endl;
+			std::cout<<"\twReserved = "<<COUT_FHEX(osvi_ex.wReserved, 2)<<std::endl;
 		}
 	} else 
 		std::cout<<"GetVersionEx/RtlGetVersion failed or not available!"<<std::endl;
@@ -127,15 +132,15 @@ int main(int argc, char* argv[])
 	std::cout<<std::endl;
 
 	DWORD dwVersion=GetVersion();
-	std::cout<<"GetVersion = "<<COUT_HEX(dwVersion, 8)<<std::endl;
+	std::cout<<"GetVersion = "<<COUT_FHEX(dwVersion, 8)<<std::endl;
 	if (dwVersion) {
-		std::cout<<"\tMajorVersion = "<<COUT_DEC(LOBYTE(LOWORD(dwVersion)))<<std::endl;
-		std::cout<<"\tMinorVersion = "<<COUT_DEC(HIBYTE(LOWORD(dwVersion)))<<std::endl;
+		std::cout<<"\tMajorVersion = "<<COUT_ADEC(LOBYTE(LOWORD(dwVersion)))<<std::endl;
+		std::cout<<"\tMinorVersion = "<<COUT_ADEC(HIBYTE(LOWORD(dwVersion)))<<std::endl;
 		//N.B.:
 		//Code below is actual for Win32 API
 		//On Win16 API HIWORD contains MS-DOS version with major number in LOBYTE and minor number in HIBYTE
 		std::cout<<"\tIsNT = "<<COUT_BOOL((dwVersion&0x80000000)==0)<<std::endl;
-		std::cout<<"\tBldNumOrRes = "<<COUT_DEC(HIWORD(dwVersion)&~0x8000)<<std::endl;	//This thing is "reserved" on Win 9x and "build number" on NT and Win32s
+		std::cout<<"\tBldNumOrRes = "<<COUT_ADEC(HIWORD(dwVersion)&~0x8000)<<std::endl;	//This thing is "reserved" on Win 9x and "build number" on NT and Win32s
 	}
 
 	std::cout<<std::endl;
@@ -184,10 +189,10 @@ int main(int argc, char* argv[])
 		GetSystemInfo(&sys_inf);
 		std::cout<<"GetSystemInfo";
 	}
-	std::cout<<".wProcessorArchitecture = "<<COUT_HEX(sys_inf.wProcessorArchitecture, 4)<<std::endl;
+	std::cout<<".wProcessorArchitecture = "<<COUT_FHEX(sys_inf.wProcessorArchitecture, 4)<<std::endl;
 	ProcessorArchitectures.Enums(sys_inf.wProcessorArchitecture, [](const std::string& label, DWORD value, bool unknown, size_t idx){
 		if (unknown)
-			std::cout<<"\tUNKNOWN VALUE ("<<COUT_HEX(value, 4)<<")"<<std::endl;
+			std::cout<<"\tUNKNOWN VALUE ("<<COUT_FHEX(value, 4)<<")"<<std::endl;
 		else
 			std::cout<<"\t"<<label<<std::endl;
 		return false;
@@ -198,10 +203,10 @@ int main(int argc, char* argv[])
 	if (fnGetProductInfo) {
 		DWORD dwProdType;
 		if (fnGetProductInfo(osvi_ex.dwMajorVersion, osvi_ex.dwMinorVersion, osvi_ex.wServicePackMajor, osvi_ex.wServicePackMinor, &dwProdType)) {
-			std::cout<<"GetProductInfo = "<<COUT_HEX(dwProdType, 8)<<std::endl;
+			std::cout<<"GetProductInfo = "<<COUT_FHEX(dwProdType, 8)<<std::endl;
 			ProductInfoTypes.Enums(dwProdType, [](const std::string& label, DWORD value, bool unknown, size_t idx){
 				if (unknown)
-					std::cout<<"\tUNKNOWN VALUE ("<<COUT_HEX(value, 8)<<")"<<std::endl;
+					std::cout<<"\tUNKNOWN VALUE ("<<COUT_FHEX(value, 8)<<")"<<std::endl;
 				else
 					std::cout<<"\t"<<label<<std::endl;
 				return false;
@@ -342,6 +347,31 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 		std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<" - error while opening!"<<std::endl;
 }
 
+BOOL GetFileVersionInfoWrapper(LPCSTR lpcstrFilename, DWORD dwHandle, DWORD dwLen, LPVOID lpData)
+{
+	//StringFileInfo is considered non-fixed part of VERSIONINFO
+	//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use StringFileInfo from this file instead of original one
+	//So information can differ between what Explorer show (actual file StringFileInfo) and what GetFileVersionInfo retreives
+	//VS_FIXEDFILEINFO remains unaffected
+	//The trick is to use GetFileVersionInfoEx with FILE_VER_GET_NEUTRAL flag to get StringFileInfo from actual file and not from MUI
+	//GetFileVersionInfoEx is available since Vista and only in UNICODE version
+	
+	if (fnGetFileVersionInfoEx&&fnGetFileVersionInfoSizeEx) {
+		return fnGetFileVersionInfoEx(FILE_VER_GET_NEUTRAL, lpcstrFilename, dwHandle, dwLen, lpData);
+	} else
+		return GetFileVersionInfo(lpcstrFilename, dwHandle, dwLen, lpData);
+}
+
+DWORD GetFileVersionInfoSizeWrapper(LPCSTR lpcstrFilename, LPDWORD lpdwHandle)
+{
+	//See comments on GetFileVersionInfoWrapper
+	
+	if (fnGetFileVersionInfoEx&&fnGetFileVersionInfoSizeEx)
+		return fnGetFileVersionInfoSizeEx(FILE_VER_GET_NEUTRAL, lpcstrFilename, lpdwHandle);
+	else
+		return GetFileVersionInfoSize(lpcstrFilename, lpdwHandle);
+}
+
 void PrintFileInformation(const char* query_path) 
 {
 	//Some Windows system files bear information that can help in detecting Windows version
@@ -388,20 +418,16 @@ void PrintFileInformation(const char* query_path)
 			SYSTEMTIME st_local;
 			
 			if (GetFileTime(hFile, NULL, NULL, &ft_utc)&&FileTimeToLocalFileTime(&ft_utc, &ft_local)&&FileTimeToSystemTime(&ft_local, &st_local)) {
-				std::cout<<"\tGetFileTime.lpLastWriteTime = "<<COUT_FIX(st_local.wDay, 2)<<"/"<<COUT_FIX(st_local.wMonth, 2)<<"/"<<COUT_FIX(st_local.wYear, 2)<<" "<<COUT_FIX(st_local.wHour, 2)<<":"<<COUT_FIX(st_local.wMinute, 2)<<":"<<COUT_FIX(st_local.wSecond, 2)<<std::endl;
+				std::cout<<"\tGetFileTime.lpLastWriteTime = "<<COUT_FDEC(st_local.wDay, 2)<<"/"<<COUT_FDEC(st_local.wMonth, 2)<<"/"<<COUT_FDEC(st_local.wYear, 2)<<" "<<COUT_FDEC(st_local.wHour, 2)<<":"<<COUT_FDEC(st_local.wMinute, 2)<<":"<<COUT_FDEC(st_local.wSecond, 2)<<std::endl;
 				got_info=true;
 			}
 			
 			CloseHandle(hFile); 
 		}
 		
-		if (DWORD buflen=GetFileVersionInfoSize(full_path.c_str(), NULL)) {	
+		if (DWORD buflen=GetFileVersionInfoSizeWrapper(full_path.c_str(), NULL)) {	
 			BYTE vibuf[buflen];
-			if (GetFileVersionInfo(full_path.c_str(), 0, buflen, (LPVOID)vibuf)) {	
-				//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use StringFileInfo from this file instead of original one
-				//So information can differ between what Explorer show (actual file StringFileInfo) and what GetFileVersionInfo retreives
-				//VS_FIXEDFILEINFO remains unaffected
-				
+			if (GetFileVersionInfoWrapper(full_path.c_str(), 0, buflen, (LPVOID)vibuf)) {	
 				UINT vqvlen;
 				VS_FIXEDFILEINFO *pffi;
 #ifdef X86_3X
@@ -412,7 +438,8 @@ void PrintFileInformation(const char* query_path)
 #else
 				if (VerQueryValue((LPVOID)vibuf, "\\", (LPVOID*)&pffi, &vqvlen)) {
 #endif
-					std::cout<<"\tVERSIONINFO\\FILEVERSION = "<<COUT_DEC(HIWORD(pffi->dwFileVersionMS))<<"."<<COUT_DEC(LOWORD(pffi->dwFileVersionMS))<<"."<<COUT_DEC(HIWORD(pffi->dwFileVersionLS))<<"."<<COUT_DEC(LOWORD(pffi->dwFileVersionLS))<<std::endl;
+					//VERSIONINFO.FILEVERSION consists of four parts: Major.Minor.Build.Private
+					std::cout<<"\tVERSIONINFO\\FILEVERSION = "<<COUT_ADEC(HIWORD(pffi->dwFileVersionMS))<<"."<<COUT_ADEC(LOWORD(pffi->dwFileVersionMS))<<"."<<COUT_ADEC(HIWORD(pffi->dwFileVersionLS))<<"."<<COUT_ADEC(LOWORD(pffi->dwFileVersionLS))<<std::endl;
 					got_info=true;
 				}
 
