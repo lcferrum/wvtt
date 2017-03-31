@@ -241,9 +241,9 @@ int main(int argc, char* argv[])
 	std::cout<<"This binary is built for x86 arch"<<std::endl;
 #endif
 	
-	BOOL wow64=FALSE;
 	if (fnIsWow64Process) {	
 		//Test if current process is running under WOW64
+		BOOL wow64;
 		if (fnIsWow64Process(GetCurrentProcess(), &wow64))
 			std::cout<<"IsWow64Process = "<<COUT_BOOL(wow64)<<std::endl;
 		else
@@ -253,7 +253,7 @@ int main(int argc, char* argv[])
 	
 	std::cout<<std::endl;
 	
-	//There are tons of register values that can be used to detect specific service pack, edition or suite variations not covered by functions above
+	//There are tons of registry entries that can be used to detect specific service pack, edition or suite variations not covered by functions above
 	//They are often exclusive to some specific minor version and have no meaning or absent on other versions
 	//Below are most common values that will just give you a general idea of what OS version you are runnning
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName");
@@ -265,7 +265,7 @@ int main(int argc, char* argv[])
 	
 	std::cout<<std::endl;
 	
-	//As with registry values there can be various files that can hint on specific OS version variations which are otherwise impossible to detect with functions above
+	//As with registry entries there can be various files that can hint on specific OS version variations which are otherwise impossible to detect with functions above
 	//Below are just most common ones used in version detection
 	PrintFileInformation("KERNEL32.DLL");
 	PrintFileInformation("USER.EXE");
@@ -417,8 +417,8 @@ void PrintFileInformation(const char* query_path)
 {
 	//Some Windows system files bear information that can help in detecting Windows version
 	//Most of these files are PE DLLs but some are also LE VXDs
-	//Microsoft vaguely suggests checking VS_FIXEDFILEINFO.FILEVERSION of VERSIONINFO resource and "date" of system files to help detect OS version
-	//In reality it's better to check StringFileInfo.ProductVersion of VERSIONINFO resource and file's modified date/time
+	//Microsoft vaguely suggests checking VS_FIXEDFILEINFO.FILEVERSION and StringFileInfo.ProductVersion of VERSIONINFO resource and "date" of system files to help detect OS version
+	//In reality the best option here seems to check StringFileInfo.ProductVersion and file's modified date/time
 	//ProductVersion holds version info more correlated with OS version than FILEVERSION that holds actual file version
 	//For example, kernel32.dll VERSIONINFO: 
 	//  NT4: FILEVERSION=4.0.1381.7095 ProductVersion="4.00"
@@ -443,8 +443,8 @@ void PrintFileInformation(const char* query_path)
 	//Also see comments for FPRoutines::GetSystemFilePath to find out how queried file is searched
 	
 	//Most Windows files that are relevant to OS detection are system DLLs
-	//GetSystemFilePath uses special set of routines to find full file path (from just relative file name) to such files
-	//GetSystemFilePath also accepts absolute paths
+	//FPRoutines::GetSystemFilePath uses special set of routines to find full file path (from just relative file name) to such files
+	//FPRoutines::GetSystemFilePath also accepts absolute paths
 	std::string full_path=FPRoutines::GetSystemFilePath(query_path);
 	
 	if (full_path.empty()) {
@@ -466,6 +466,10 @@ void PrintFileInformation(const char* query_path)
 			CloseHandle(hFile); 
 		}
 		
+		//Interesting thing is that GetFileVersionInfo family of functions uses LoadLibraryEx(LOAD_LIBRARY_AS_DATAFILE) on NT and SearchPath on 9x to get absolute path from relative one
+		//Not far from what FPRoutines::GetSystemFilePath does internally
+		//But we need to show user actual absolute path for supplied file name and also make sure that the same file will be used with CreateFile/GetFileTime
+		//That's why we use FPRoutines::GetSystemFilePath
 		if (DWORD buflen=GetFileVersionInfoSizeWrapper(full_path.c_str(), NULL)) {	
 			BYTE vibuf[buflen];
 			if (GetFileVersionInfoWrapper(full_path.c_str(), 0, buflen, (LPVOID)vibuf)) {	
