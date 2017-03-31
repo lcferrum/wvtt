@@ -3,8 +3,8 @@
 pRtlGetVersion fnRtlGetVersion=NULL;
 pGetNativeSystemInfo fnGetNativeSystemInfo=NULL;
 pIsWow64Process fnIsWow64Process=NULL;
-pGetFileVersionInfoEx fnGetFileVersionInfoEx=NULL;
-pGetFileVersionInfoSizeEx fnGetFileVersionInfoSizeEx=NULL;
+pGetFileVersionInfoExW fnGetFileVersionInfoExW=NULL;
+pGetFileVersionInfoSizeExW fnGetFileVersionInfoSizeExW=NULL;
 pGetProductInfo fnGetProductInfo=NULL;
 pGetVersionExA fnGetVersionExA=NULL;
 pNtCreateFile fnNtCreateFile=NULL;
@@ -67,8 +67,8 @@ void Externs::LoadFunctions()
 	}
 	
 	if (hVersion) {
-		fnGetFileVersionInfoSizeEx=(pGetFileVersionInfoSizeEx)GetProcAddress(hVersion, "GetFileVersionInfoSizeExW");
-		fnGetFileVersionInfoEx=(pGetFileVersionInfoEx)GetProcAddress(hVersion, "GetFileVersionInfoExW");
+		fnGetFileVersionInfoSizeExW=(pGetFileVersionInfoSizeExW)GetProcAddress(hVersion, "GetFileVersionInfoSizeExW");
+		fnGetFileVersionInfoExW=(pGetFileVersionInfoExW)GetProcAddress(hVersion, "GetFileVersionInfoExW");
 	}
 }
 

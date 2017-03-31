@@ -121,18 +121,18 @@ bool FPRoutines::UnredirectWow64FsPath(const char* fpath, std::string &real_fpat
 	//On any conversion error (i.e. error not related to original path not being redirected one) function returns empty string
 
 	//If not on WoW64 - obviously return fpath (aka original string)
-	//If WoW64 is TRUE, all functions below in theory should be available
+	//If WoW64 is non-zero, all functions below in theory should be available
 	//But because calling unavailable function potentially causes access violation it's a good thing to check them anyway (NT functions are subject to change according to MS)
 	//(And treat unavailability of functions as unavailability of WoW64)
 	BOOL wow64=FALSE;
-	if (!fnIsWow64Process||!fnIsWow64Process(GetCurrentProcess(), &wow64)||wow64!=TRUE||!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject) {
+	if (!fnIsWow64Process||!fnIsWow64Process(GetCurrentProcess(), &wow64)||!wow64||!fnGetSystemWow64DirectoryW||!fnNtCreateFile||!fnNtQueryObject) {
 		real_fpath=fpath;
 		return true;
 	}
 	
 	UINT chars_num=fnGetSystemWow64DirectoryW(NULL, 0);
 	//GetSystemWow64Directory can fail with GetLastError()=ERROR_CALL_NOT_IMPLEMENTED indicating that we should return fpath because there are no WoW64 obviously
-	//But it is impossible case because wow64 should be FALSE for that to work and we have already checked for it to be TRUE
+	//But it is impossible case because wow64 should be zero for that to work and we have already checked for it to be non-zero
 	//So if GetSystemWow64Directory failed: it failed for some other nasty reason - treat as conversion error
 	if (!chars_num) 
 		return false;
@@ -166,7 +166,7 @@ bool FPRoutines::UnredirectWow64FsPath(const char* fpath, std::string &real_fpat
 		CloseHandle(hFile);
 		//NtQueryObject can fail with STATUS_INVALID_INFO_CLASS indicating that ObjectNameInformation class is not supported
 		//This could in theory happen on some damn old NT which, because of it's age, shouldn't also support WoW64
-		//But we have already checked WoW64 presence and it should be TRUE if we are here
+		//But we have already checked WoW64 presence and it should be non-zero if we are here
 		//Or MS decided (again) to change NtQueryObject behaviour for one of the future releases and remove STATUS_INVALID_INFO_CLASS
 		//All in all, if NtQueryObject failed for any of the reasons - it's conversion error
 		return false;

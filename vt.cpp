@@ -13,8 +13,8 @@
 extern pRtlGetVersion fnRtlGetVersion;
 extern pGetNativeSystemInfo fnGetNativeSystemInfo;
 extern pIsWow64Process fnIsWow64Process;
-extern pGetFileVersionInfoEx fnGetFileVersionInfoEx;
-extern pGetFileVersionInfoSizeEx fnGetFileVersionInfoSizeEx;
+extern pGetFileVersionInfoExW fnGetFileVersionInfoExW;
+extern pGetFileVersionInfoSizeExW fnGetFileVersionInfoSizeExW;
 extern pGetProductInfo fnGetProductInfo;
 extern pGetVersionExA fnGetVersionExA;
 extern pwine_get_version fnwine_get_version;
@@ -131,15 +131,14 @@ int main(int argc, char* argv[])
 		
 	std::cout<<std::endl;
 
-	DWORD dwVersion=GetVersion();
-	std::cout<<"GetVersion = "<<COUT_FHEX(dwVersion, 8)<<std::endl;
-	if (dwVersion) {
+	if (DWORD dwVersion=GetVersion()) {
 		//This information is mostly taken from MSDN Library October 1999
 		//Newer MSDN versions omit non-NT related info for GetVersion
 		
+		std::cout<<"GetVersion:"<<std::endl;
 		std::cout<<"\tMajorVersion = "<<COUT_ADEC(LOBYTE(LOWORD(dwVersion)))<<std::endl;
 		std::cout<<"\tMinorVersion = "<<COUT_ADEC(HIBYTE(LOWORD(dwVersion)))<<std::endl;
-		std::cout<<"\tIsNT = "<<COUT_BOOL((dwVersion&0x80000000)==0)<<std::endl;
+		std::cout<<"\tIsNT = "<<COUT_BOOL(!(dwVersion&0x80000000))<<std::endl;
 		//This thing is "reserved" on Win 9x and "build number" on NT and Win32s
 		//On Win 9x/Me HIWORD(dwVersion) is always 0xC000, so "reserved" will always be 0x4000
 		std::cout<<"\tBldNumOrRes = "<<COUT_ADEC(HIWORD(dwVersion)&~0x8000)<<" = "<<COUT_FHEX(HIWORD(dwVersion)&~0x8000, 4)<<std::endl;
@@ -147,6 +146,8 @@ int main(int argc, char* argv[])
 		//N.B.:
 		//HIWORD(dwVersion) treatment above is actual for Win32 API
 		//On Win16 API HIWORD(dwVersion) contains MS-DOS version with major number in LOBYTE and minor number in HIBYTE
+	} else {
+		std::cout<<"GetVersion failed!"<<std::endl;
 	}
 
 	std::cout<<std::endl;
@@ -222,6 +223,15 @@ int main(int argc, char* argv[])
 			std::cout<<"GetProductInfo failed!"<<std::endl;
 	} else
 		std::cout<<"Can't load GetProductInfo from kernel32.dll!"<<std::endl;
+
+	std::cout<<std::endl;
+	
+	if (fnwine_get_version) {
+		//Test for Wine
+		std::cout<<"wine_get_version = \""<<fnwine_get_version()<<"\""<<std::endl;
+	} else {
+		std::cout<<"Can't load wine_get_version from ntdll.dll!"<<std::endl;
+	}
 	
 	std::cout<<std::endl;
 	
@@ -235,18 +245,11 @@ int main(int argc, char* argv[])
 	if (fnIsWow64Process) {	
 		//Test if current process is running under WOW64
 		if (fnIsWow64Process(GetCurrentProcess(), &wow64))
-			std::cout<<"IsWow64Process = "<<COUT_BOOL(wow64==TRUE)<<std::endl;
+			std::cout<<"IsWow64Process = "<<COUT_BOOL(wow64)<<std::endl;
 		else
 			std::cout<<"IsWow64Process failed!"<<std::endl;
 	} else
 		std::cout<<"Can't load IsWow64Process from kernel32.dll!"<<std::endl;
-	
-	if (fnwine_get_version) {
-		//Test for Wine
-		std::cout<<"wine_get_version = \""<<fnwine_get_version()<<"\""<<std::endl;
-	} else {
-		std::cout<<"Can't load wine_get_version from ntdll.dll!"<<std::endl;
-	}
 	
 	std::cout<<std::endl;
 	
@@ -351,15 +354,15 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 				switch (key_type) {
 					case REG_SZ:
 					case REG_EXPAND_SZ:
-						regbuf[buflen]='\0';	//RegQueryValueEx fails if buffer is too small and it is already one byte bigger than needed, so this won't cause access violation
+						//It's not guaranteed that buffer returned by RegQueryValueEx is NULL-terminated
+						//RegQueryValueEx fails if buffer is too small and it is already one byte bigger than needed, so NULL-terminating using buffer length as index won't cause access violation
+						regbuf[buflen]='\0';
 						std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<":\n\t\""<<(char*)regbuf<<"\""<<std::endl;
 						success=true;
 						break;
 					case REG_DWORD:
-						if (buflen==sizeof(DWORD)) {
-							std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<":\n\t"<<COUT_ADEC(*(DWORD*)regbuf)<<" = "<<COUT_FHEX(*(DWORD*)regbuf, 8)<<std::endl;
-							success=true;
-						}
+						std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<":\n\t"<<COUT_ADEC(*(DWORD*)regbuf)<<" = "<<COUT_FHEX(*(DWORD*)regbuf, 8)<<std::endl;
+						success=true;
 						break;
 				}
 			}
@@ -368,23 +371,23 @@ void PrintRegistryKey(HKEY hive, const char* keypath, const char* value)
 	}
 	
 	if (!success) 
-		std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<" - error while opening!"<<std::endl;
+		std::cout<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value<<" - can't read registry value!"<<std::endl;
 }
 
 BOOL GetFileVersionInfoWrapper(LPCSTR lpstrFilename, DWORD dwHandle, DWORD dwLen, LPVOID lpData)
 {
 	//StringFileInfo is considered non-fixed part of VERSIONINFO
 	//If GetFileVersionInfo finds a MUI file for the file it is currently querying, it will use StringFileInfo from this file instead of original one
-	//So information can differ between what Explorer show (actual file StringFileInfo) and what GetFileVersionInfo retreives
+	//So information can differ between what Explorer shows (actual file StringFileInfo) and what GetFileVersionInfo retreives
 	//VS_FIXEDFILEINFO remains unaffected
 	//The trick is to use GetFileVersionInfoEx with FILE_VER_GET_NEUTRAL flag to get StringFileInfo from actual file and not from MUI
 	//GetFileVersionInfoEx is available since Vista and only in UNICODE version
 	
-	if (fnGetFileVersionInfoEx) {
+	if (fnGetFileVersionInfoExW&&fnGetFileVersionInfoSizeExW) {
 		if (int chars_num=MultiByteToWideChar(CP_ACP, 0, lpstrFilename, -1, NULL, 0)) {
 			wchar_t w_fname[chars_num];
 			if (MultiByteToWideChar(CP_ACP, 0, lpstrFilename, -1, w_fname, chars_num)) {
-				return fnGetFileVersionInfoEx(FILE_VER_GET_NEUTRAL, w_fname, dwHandle, dwLen, lpData);
+				return fnGetFileVersionInfoExW(FILE_VER_GET_NEUTRAL, w_fname, dwHandle, dwLen, lpData);
 			}
 		}
 			
@@ -397,11 +400,11 @@ DWORD GetFileVersionInfoSizeWrapper(LPCSTR lpstrFilename, LPDWORD lpdwHandle)
 {
 	//See comments on GetFileVersionInfoWrapper
 	
-	if (fnGetFileVersionInfoSizeEx) {
+	if (fnGetFileVersionInfoExW&&fnGetFileVersionInfoSizeExW) {
 		if (int chars_num=MultiByteToWideChar(CP_ACP, 0, lpstrFilename, -1, NULL, 0)) {
 			wchar_t w_fname[chars_num];
 			if (MultiByteToWideChar(CP_ACP, 0, lpstrFilename, -1, w_fname, chars_num)) {
-				return fnGetFileVersionInfoSizeEx(FILE_VER_GET_NEUTRAL, w_fname, lpdwHandle);
+				return fnGetFileVersionInfoSizeExW(FILE_VER_GET_NEUTRAL, w_fname, lpdwHandle);
 			}
 		}
 			
@@ -477,6 +480,9 @@ void PrintFileInformation(const char* query_path)
 				if (VerQueryValue((LPVOID)vibuf, "\\", (LPVOID*)&pffi, &vqvlen)) {
 #endif
 					//VERSIONINFO.FILEVERSION consists of four parts: Major.Minor.Build.Private
+					//On Win 10 if file is owned by TrustedInstaller and FILEVERSION=10.0.*.*, same manifest OS compatibility rules apply as for GetVersion/GetVersionEx
+					//E.g. if maximum supported OS, declared in manifest compatibility section, is Win 8.1, then FILEVERSION major and minor part will be set to 6 and 3 accordingly
+					//VERSIONINFO.PRODUCTVERSION is not affected by such behaviour
 					std::cout<<"\tVERSIONINFO\\FILEVERSION = "<<COUT_ADEC(HIWORD(pffi->dwFileVersionMS))<<"."<<COUT_ADEC(LOWORD(pffi->dwFileVersionMS))<<"."<<COUT_ADEC(HIWORD(pffi->dwFileVersionLS))<<"."<<COUT_ADEC(LOWORD(pffi->dwFileVersionLS))<<std::endl;
 					got_info=true;
 				}
@@ -493,7 +499,7 @@ void PrintFileInformation(const char* query_path)
 					//But again here we are delaing specifically with system files to get OS version related information
 
 					char *value;
-					std::stringstream qstr;
+					std::ostringstream qstr;
 					qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wLanguage<<std::setw(4)<<plcp->wCodePage<<"\\ProductVersion";
 					if (VerQueryValue((LPVOID)vibuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
 						std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
@@ -506,7 +512,7 @@ void PrintFileInformation(const char* query_path)
 						//So let's try the other way around
 						qstr.str(std::string());
 						qstr.clear();
-						qstr<<std::uppercase<<std::noshowbase<<std::hex<<std::setfill('0')<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\ProductVersion";
+						qstr<<"\\StringFileInfo\\"<<std::setw(4)<<plcp->wCodePage<<std::setw(4)<<plcp->wLanguage<<"\\ProductVersion";
 						if (VerQueryValue((LPVOID)vibuf, qstr.str().c_str(), (LPVOID*)&value, &vqvlen)) {
 							std::cout<<"\tVERSIONINFO"<<qstr.str()<<" = \""<<value<<"\""<<std::endl;
 							got_info=true;
