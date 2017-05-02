@@ -25,10 +25,18 @@ typedef struct _LANGANDCODEPAGE {
 } LANGANDCODEPAGE;
 
 //Defines not found in MinGW's windows.h/winnt.h:
+#ifndef SM_WEPOS
 #define SM_WEPOS				0x2003
+#endif
+#ifndef SM_FUNDAMENTALS
 #define SM_FUNDAMENTALS			0x2004
+#endif
+#ifndef VER_PLATFORM_WIN32_CE
 #define VER_PLATFORM_WIN32_CE	3
+#endif
+#ifndef FILE_VER_GET_NEUTRAL
 #define FILE_VER_GET_NEUTRAL	0x002
+#endif
 
 //std::cout treats char as, obviously, char and prints it as such - not it's numerical value
 //If numerical value is needed, instead of static cast to ULONG_PTR, unary addition operator can be used to force printing numerical value
