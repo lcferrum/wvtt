@@ -51,14 +51,14 @@ Or, for x86-64 build:
 
     make BUILD=MinGW-w64 HOST=x86-64
 	
-To build x86 binary with MinGW 4.7.2 type the following:
+To build x86 binary with Clang 3.6.2 type the following:
 
-    make BUILD=MinGW_472 HOST=x86
+    make BUILD=Clang_362 HOST=x86
 	
-Ordinary MinGW 4.7.2 x86 build supports only Win 9x/NT4 or newer. To support Win
+Ordinary Clang 3.6.2 x86 build supports only Win 9x/NT4 or newer. To support Win
 NT3.x and Win 3.1 w/ Win32s you should make "maximum compatibility" x86 build:
 
-    make BUILD=MinGW_472 HOST=x86_3X
+    make BUILD=Clang_362 HOST=x86_3X
     
 x86_3X build is featurewise identical to x86, but has some additional
 compatibility hacks enabled. For other compile options please check makefile
