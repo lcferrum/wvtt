@@ -18,7 +18,7 @@ steps:
 
     2) Compile it using makefile
 
-    3) For older systems:
+    3) To run compiled binaries on older systems:
 
         a) Install MSVCRT (if not present)
 		
