@@ -15,6 +15,7 @@ pNtQuerySymbolicLinkObject fnNtQuerySymbolicLinkObject=NULL;
 pNtQueryInformationFile fnNtQueryInformationFile=NULL;
 pNtQueryVirtualMemory fnNtQueryVirtualMemory=NULL;
 pGetFileAttributesW fnGetFileAttributesW=NULL;
+pQueryActCtxW fnQueryActCtxW=NULL;
 pwine_get_version fnwine_get_version=NULL;
 
 std::unique_ptr<Externs> Externs::instance;
@@ -64,6 +65,7 @@ void Externs::LoadFunctions()
 		fnGetProductInfo=(pGetProductInfo)GetProcAddress(hKernel32, "GetProductInfo");
 		fnGetVersionExA=(pGetVersionExA)GetProcAddress(hKernel32, "GetVersionExA");
 		fnGetFileAttributesW=(pGetFileAttributesW)GetProcAddress(hKernel32, "GetFileAttributesW");
+		fnQueryActCtxW=(pQueryActCtxW)GetProcAddress(hKernel32, "QueryActCtxW");
 	}
 	
 	if (hVersion) {

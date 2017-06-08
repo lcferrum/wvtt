@@ -17,6 +17,7 @@ extern pGetFileVersionInfoExW fnGetFileVersionInfoExW;
 extern pGetFileVersionInfoSizeExW fnGetFileVersionInfoSizeExW;
 extern pGetProductInfo fnGetProductInfo;
 extern pGetVersionExA fnGetVersionExA;
+extern pQueryActCtxW fnQueryActCtxW;
 extern pwine_get_version fnwine_get_version;
 
 typedef struct _LANGANDCODEPAGE {
@@ -37,6 +38,12 @@ typedef struct _LANGANDCODEPAGE {
 #ifndef FILE_VER_GET_NEUTRAL
 #define FILE_VER_GET_NEUTRAL	0x002
 #endif
+#define XP_CONTEXT_GUID		{0xbeb1b341, 0x6837, 0x4c83, {0x83, 0x66, 0x2b, 0x45, 0x1e, 0x7c, 0xe6, 0x9b}}
+#define VISTA_CONTEXT_GUID	{0xe2011457, 0x1546, 0x43c5, {0xa5, 0xfe, 0x00, 0x8d, 0xee, 0xe3, 0xd3, 0xf0}}
+#define WIN7_CONTEXT_GUID	{0x35138b9a, 0x5d96, 0x4fbd, {0x8e, 0x2d, 0xa2, 0x44, 0x02, 0x25, 0xf9, 0x3a}}
+#define WIN8_CONTEXT_GUID	{0x4a2f28e3, 0x53b9, 0x4441, {0xba, 0x9c, 0xd6, 0x9d, 0x4a, 0x4a, 0x6e, 0x38}}
+#define WIN81_CONTEXT_GUID	{0x1f676c76, 0x80e1, 0x4239, {0x95, 0xbb, 0x83, 0xd0, 0xf6, 0xd0, 0xda, 0x78}}
+#define WIN10_CONTEXT_GUID	{0x8e0f7a12, 0xbfb3, 0x4fe8, {0xb9, 0xa5, 0x48, 0xfd, 0x50, 0xa1, 0x5a, 0x9a}}
 
 //std::cout treats char as, obviously, char and prints it as such - not it's numerical value
 //If numerical value is needed, instead of static cast to ULONG_PTR, unary addition operator can be used to force printing numerical value
@@ -45,6 +52,7 @@ typedef struct _LANGANDCODEPAGE {
 #define COUT_ADEC(dec_int)				+(dec_int)
 #define COUT_FDEC(dec_int, dec_width)	std::setw(dec_width)<<+(dec_int)
 #define COUT_FHEX(hex_int, hex_width)	"0x"<<std::hex<<std::setw(hex_width)<<+(hex_int)<<std::dec
+#define COUT_GUID(guid)					std::hex<<std::setw(8)<<+(guid.Data1)<<"-"<<std::setw(4)<<+(guid.Data2)<<"-"<<std::setw(4)<<+(guid.Data3)<<"-"<<std::setw(2)<<+(guid.Data4[0])<<std::setw(2)<<+(guid.Data4[1])<<"-"<<std::setw(2)<<+(guid.Data4[2])<<std::setw(2)<<+(guid.Data4[3])<<std::setw(2)<<+(guid.Data4[4])<<std::setw(2)<<+(guid.Data4[5])<<std::setw(2)<<+(guid.Data4[6])<<std::setw(2)<<+(guid.Data4[7])<<std::dec
 #define COUT_BOOL(bool_val)				((bool_val)?"TRUE":"FALSE")
 
 LabeledValues PlatfromIds(LABELED_VALUES_ARG(VER_PLATFORM_WIN32s, VER_PLATFORM_WIN32_WINDOWS, VER_PLATFORM_WIN32_NT, VER_PLATFORM_WIN32_CE));
@@ -54,9 +62,11 @@ LabeledValues SystemMetrics(LABELED_VALUES_ARG(SM_FUNDAMENTALS, SM_WEPOS, SM_DEB
 LabeledValues ProcessorArchitectures(LABELED_VALUES_ARG(PROCESSOR_ARCHITECTURE_INTEL, PROCESSOR_ARCHITECTURE_MIPS, PROCESSOR_ARCHITECTURE_ALPHA, PROCESSOR_ARCHITECTURE_PPC, PROCESSOR_ARCHITECTURE_SHX, PROCESSOR_ARCHITECTURE_ARM, PROCESSOR_ARCHITECTURE_IA64, PROCESSOR_ARCHITECTURE_ALPHA64, PROCESSOR_ARCHITECTURE_MSIL, PROCESSOR_ARCHITECTURE_AMD64, PROCESSOR_ARCHITECTURE_IA32_ON_WIN64, PROCESSOR_ARCHITECTURE_NEUTRAL, PROCESSOR_ARCHITECTURE_UNKNOWN));
 LabeledValues ProductInfoTypes(LABELED_VALUES_ARG(PRODUCT_UNDEFINED, PRODUCT_ULTIMATE, PRODUCT_HOME_BASIC, PRODUCT_HOME_PREMIUM, PRODUCT_ENTERPRISE, PRODUCT_HOME_BASIC_N, PRODUCT_BUSINESS, PRODUCT_STANDARD_SERVER, PRODUCT_DATACENTER_SERVER, PRODUCT_SMALLBUSINESS_SERVER, PRODUCT_ENTERPRISE_SERVER, PRODUCT_STARTER, PRODUCT_DATACENTER_SERVER_CORE, PRODUCT_STANDARD_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_IA64, PRODUCT_BUSINESS_N, PRODUCT_WEB_SERVER, PRODUCT_CLUSTER_SERVER, PRODUCT_HOME_SERVER, PRODUCT_STORAGE_EXPRESS_SERVER, PRODUCT_STORAGE_STANDARD_SERVER, PRODUCT_STORAGE_WORKGROUP_SERVER, PRODUCT_STORAGE_ENTERPRISE_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM, PRODUCT_UNLICENSED, PRODUCT_HOME_PREMIUM_N, PRODUCT_ENTERPRISE_N, PRODUCT_ULTIMATE_N, PRODUCT_WEB_SERVER_CORE, PRODUCT_MEDIUMBUSINESS_SERVER_MANAGEMENT, PRODUCT_MEDIUMBUSINESS_SERVER_SECURITY, PRODUCT_MEDIUMBUSINESS_SERVER_MESSAGING, PRODUCT_SERVER_FOUNDATION, PRODUCT_HOME_PREMIUM_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS_V, PRODUCT_STANDARD_SERVER_V, PRODUCT_DATACENTER_SERVER_V, PRODUCT_ENTERPRISE_SERVER_V, PRODUCT_DATACENTER_SERVER_CORE_V, PRODUCT_STANDARD_SERVER_CORE_V, PRODUCT_ENTERPRISE_SERVER_CORE_V, PRODUCT_HYPERV, PRODUCT_STORAGE_EXPRESS_SERVER_CORE, PRODUCT_STORAGE_STANDARD_SERVER_CORE, PRODUCT_STORAGE_WORKGROUP_SERVER_CORE, PRODUCT_STORAGE_ENTERPRISE_SERVER_CORE, PRODUCT_STARTER_N, PRODUCT_PROFESSIONAL, PRODUCT_PROFESSIONAL_N, PRODUCT_SB_SOLUTION_SERVER, PRODUCT_SERVER_FOR_SB_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS_CORE, PRODUCT_SB_SOLUTION_SERVER_EM, PRODUCT_SERVER_FOR_SB_SOLUTIONS_EM, PRODUCT_SOLUTION_EMBEDDEDSERVER, PRODUCT_SOLUTION_EMBEDDEDSERVER_CORE, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM_CORE, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMT, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDL, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMTSVC, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDLSVC, PRODUCT_CLUSTER_SERVER_V, PRODUCT_EMBEDDED, PRODUCT_STARTER_E, PRODUCT_HOME_BASIC_E, PRODUCT_HOME_PREMIUM_E, PRODUCT_PROFESSIONAL_E, PRODUCT_ENTERPRISE_E, PRODUCT_ULTIMATE_E));
 BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
+BasicLabeledValues<GUID, const GUID&> OsGuids(LABELED_VALUES_ARG(XP_CONTEXT_GUID, VISTA_CONTEXT_GUID, WIN7_CONTEXT_GUID, WIN8_CONTEXT_GUID, WIN81_CONTEXT_GUID, WIN10_CONTEXT_GUID));
 
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
 void PrintFileInformation(const char* query_path);
+void GetSupportedOSInformationFromCompatibilityContext();
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
 BOOL GetFileVersionInfoWrapper(LPCSTR lpstrFilename, DWORD dwHandle, DWORD dwLen, LPVOID lpData);
 DWORD GetFileVersionInfoSizeWrapper(LPCSTR lpstrFilename, LPDWORD lpdwHandle);
@@ -91,13 +101,13 @@ int main(int argc, char* argv[])
 	//Applied for all subsequent cout outputs 
 	std::cout.unsetf(std::ios::showbase);
 	std::cout.setf(std::ios::uppercase); 
-
+	
 #ifdef X86_3X
 	//Disable Windows error dialog popup for failed LoadLibrary attempts on NT3.x and Win32s
 	//This is done so GetSystemFilePath can search for needed files using LoadLibrary
 	SetErrorMode(SEM_NOOPENFILEERRORBOX|SEM_FAILCRITICALERRORS);
 #endif
-	
+
 	OSVERSIONINFOEX osvi_ex;
 	if (GetVersionWrapper(osvi_ex)) {
 		std::cout<<"\tdwMajorVersion = "<<COUT_ADEC(osvi_ex.dwMajorVersion)<<std::endl;
@@ -231,7 +241,7 @@ int main(int argc, char* argv[])
 			std::cout<<"GetProductInfo failed!"<<std::endl;
 	} else
 		std::cout<<"Can't load GetProductInfo from kernel32.dll!"<<std::endl;
-
+	
 	std::cout<<std::endl;
 	
 	if (fnwine_get_version) {
@@ -258,6 +268,8 @@ int main(int argc, char* argv[])
 			std::cout<<"IsWow64Process failed!"<<std::endl;
 	} else
 		std::cout<<"Can't load IsWow64Process from kernel32.dll!"<<std::endl;
+	
+	GetSupportedOSInformationFromCompatibilityContext();
 	
 	std::cout<<std::endl;
 	
@@ -538,4 +550,38 @@ void PrintFileInformation(const char* query_path)
 		if (!got_info)
 			std::cout<<"\tNO INFORMATION FOUND"<<std::endl;	
 	}
+}
+
+void GetSupportedOSInformationFromCompatibilityContext() {
+	bool failed=true;
+	
+	if (fnQueryActCtxW) {
+		HANDLE act_ctx_handle=NULL;
+		SIZE_T ret_size=0;
+		if (!QueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, NULL, 0, &ret_size)&&
+			ret_size&&GetLastError()==ERROR_INSUFFICIENT_BUFFER) {
+			ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION *ctx_compat_info=(ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION*)new BYTE[ret_size];
+			
+			if (QueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, ctx_compat_info, ret_size, &ret_size)) {
+				failed=false;
+				std::cout<<"OS compatibility contexts supported by current application manifest:"<<std::endl;
+				for (DWORD idx=0; idx<ctx_compat_info->ElementCount; idx++) {
+					if (ctx_compat_info->Elements[idx].Type==ACTCTX_COMPATIBILITY_ELEMENT_TYPE_OS) {
+						OsGuids.Enums(ctx_compat_info->Elements[idx].Id, [](const std::string& label, const GUID& value, bool unknown, size_t idx){
+							if (unknown)
+								std::cout<<"\tUNKNOWN GUID ("<<COUT_GUID(value)<<")"<<std::endl;
+							else
+								std::cout<<"\t"<<label<<std::endl;
+							return false;
+						});
+					}
+				}
+			}
+			
+			delete[] (BYTE*)ctx_compat_info;
+		}
+	}		
+	
+	if (failed)
+		std::cout<<"Compatibility context information not available!"<<std::endl;
 }
