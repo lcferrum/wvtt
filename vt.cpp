@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
 		std::cout<<"\tdwMinorVersion = "<<COUT_ADEC(osvi_ex.dwMinorVersion)<<std::endl;
 		std::cout<<"\tdwBuildNumber = "<<COUT_ADEC(osvi_ex.dwBuildNumber)<<" = "<<COUT_ADEC(HIBYTE(HIWORD(osvi_ex.dwBuildNumber)))<<"."<<COUT_ADEC(LOBYTE(HIWORD(osvi_ex.dwBuildNumber)))<<"."<<COUT_ADEC((DWORD)LOWORD(osvi_ex.dwBuildNumber))<<std::endl;
 		std::cout<<"\tdwPlatformId = "<<COUT_FHEX(osvi_ex.dwPlatformId, 8)<<std::endl;
-		PlatfromIds.Enums(osvi_ex.dwPlatformId, [](const std::string& label, DWORD value, bool unknown, size_t idx){
+		PlatfromIds.Enums(osvi_ex.dwPlatformId, [](const std::string& label, DWORD value, bool unknown){
 			if (unknown)
 				std::cout<<"\t\tUNKNOWN VALUE ("<<COUT_FHEX(value, 8)<<")"<<std::endl;
 			else
@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
 			std::cout<<"\twServicePackMajor = "<<COUT_ADEC(osvi_ex.wServicePackMajor)<<std::endl;
 			std::cout<<"\twServicePackMinor = "<<COUT_ADEC(osvi_ex.wServicePackMinor)<<std::endl;
 			std::cout<<"\twSuiteMask = "<<COUT_FHEX(osvi_ex.wSuiteMask, 4)<<std::endl;
-			if (!SuiteMasks.Flags(osvi_ex.wSuiteMask, [](const std::string& label, DWORD value, bool unknown, size_t idx){
+			if (!SuiteMasks.Flags(osvi_ex.wSuiteMask, [](const std::string& label, DWORD value, bool unknown){
 				if (unknown)
 					std::cout<<"\t\tUNKNOWN FLAG ("<<COUT_FHEX(value, 4)<<")"<<std::endl;
 				else
@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
 			}))
 				std::cout<<"\t\tNO FLAGS SET"<<std::endl;
 			std::cout<<"\twProductType = "<<COUT_FHEX(osvi_ex.wProductType, 2)<<std::endl;
-			ProductTypes.Enums(osvi_ex.wProductType, [](const std::string& label, DWORD value, bool unknown, size_t idx){
+			ProductTypes.Enums(osvi_ex.wProductType, [](const std::string& label, DWORD value, bool unknown){
 				if (unknown)
 					std::cout<<"\t\tUNKNOWN VALUE ("<<COUT_FHEX(value, 2)<<")"<<std::endl;
 				else
@@ -171,7 +171,7 @@ int main(int argc, char* argv[])
 	std::cout<<std::endl;
 
 	std::cout<<"GetSystemMetrics:"<<std::endl;
-	if (!SystemMetrics.Matches([](const std::string& label, DWORD value, size_t idx) {
+	if (!SystemMetrics.Matches([](const std::string& label, DWORD value) {
 		//On NT all the system metrics reside in aiSysMet member of SERVERINFO struct (aka _gpsi)
 		//SERVERINFO is a global internal system structure common for all the processes
 		//aiSysMet is an int array of fixed length - nIndex passed to GetSystemMetrics actually is an index to this array
@@ -216,7 +216,7 @@ int main(int argc, char* argv[])
 		std::cout<<"GetSystemInfo";
 	}
 	std::cout<<".wProcessorArchitecture = "<<COUT_FHEX(sys_inf.wProcessorArchitecture, 4)<<std::endl;
-	ProcessorArchitectures.Enums(sys_inf.wProcessorArchitecture, [](const std::string& label, DWORD value, bool unknown, size_t idx){
+	ProcessorArchitectures.Enums(sys_inf.wProcessorArchitecture, [](const std::string& label, DWORD value, bool unknown){
 		if (unknown)
 			std::cout<<"\tUNKNOWN VALUE ("<<COUT_FHEX(value, 4)<<")"<<std::endl;
 		else
@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
 		DWORD dwProdType;
 		if (fnGetProductInfo(osvi_ex.dwMajorVersion, osvi_ex.dwMinorVersion, osvi_ex.wServicePackMajor, osvi_ex.wServicePackMinor, &dwProdType)) {
 			std::cout<<"GetProductInfo = "<<COUT_FHEX(dwProdType, 8)<<std::endl;
-			ProductInfoTypes.Enums(dwProdType, [](const std::string& label, DWORD value, bool unknown, size_t idx){
+			ProductInfoTypes.Enums(dwProdType, [](const std::string& label, DWORD value, bool unknown){
 				if (unknown)
 					std::cout<<"\tUNKNOWN VALUE ("<<COUT_FHEX(value, 8)<<")"<<std::endl;
 				else
@@ -567,7 +567,7 @@ void GetSupportedOSInformationFromCompatibilityContext() {
 				std::cout<<"OS compatibility contexts supported by current application manifest:"<<std::endl;
 				for (DWORD idx=0; idx<ctx_compat_info->ElementCount; idx++) {
 					if (ctx_compat_info->Elements[idx].Type==ACTCTX_COMPATIBILITY_ELEMENT_TYPE_OS) {
-						OsGuids.Enums(ctx_compat_info->Elements[idx].Id, [](const std::string& label, const GUID& value, bool unknown, size_t idx){
+						OsGuids.Enums(ctx_compat_info->Elements[idx].Id, [](const std::string& label, const GUID& value, bool unknown){
 							if (unknown)
 								std::cout<<"\tUNKNOWN GUID ("<<COUT_GUID(value)<<")"<<std::endl;
 							else

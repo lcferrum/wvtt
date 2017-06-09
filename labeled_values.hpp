@@ -4,145 +4,151 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <locale>
 #include <algorithm>
 #include <functional>
 #include <initializer_list>
 
 #ifdef _WIN32
-#include <windows.h>	//TCHAR, TEXT and DWORD
-#else
-#define TEXT(c) c		//On non-Windows targets assume that SBCS/MBCS character set is in use
+#include <windows.h>	//DWORD
 #endif
 
 #define LABELED_VALUES_ARG(...)	TEXT(#__VA_ARGS__), {__VA_ARGS__}
-template <typename ValT, typename ArgT=ValT, bool unique=false>
-class BasicLabeledValues {
 #if defined(UNICODE) && defined(_WIN32)
-	typedef std::wstring TSTRING;
-	typedef std::wstringstream TSTRINGSTREAM;
+template <typename ValT, typename ArgT=ValT, bool unique=false, typename BLV_TCHAR=wchar_t>
 #else
-	typedef std::string TSTRING;
-	typedef std::stringstream TSTRINGSTREAM;
+template <typename ValT, typename ArgT=ValT, bool unique=false, typename BLV_TCHAR=char>
 #endif
-#ifndef _WIN32
-	typedef char TCHAR;
-#endif
+class BasicLabeledValues {
+	typedef std::basic_string<BLV_TCHAR> BLV_TSTRING;
+	typedef std::basic_stringstream<BLV_TCHAR> BLV_TSTRINGSTREAM;
 private:
-	std::vector<std::pair<TSTRING, ValT>> ValList;
+	std::vector<std::pair<BLV_TSTRING, ValT>> ValList;
+	static BLV_TCHAR comma;
+	static BLV_TCHAR space;
 public:
 	template <bool U=unique, typename std::enable_if<!U>::type* = nullptr>
-	BasicLabeledValues(const TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList() {
-		TSTRINGSTREAM vals_ss(vals_str);
-		TSTRING value;
+	BasicLabeledValues(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList() {
+		BLV_TSTRINGSTREAM vals_ss(vals_str);
+		BLV_TSTRING value;
 		typename std::initializer_list<ValT>::iterator vals_it=vals.begin();
-		while (std::getline(vals_ss, value, TEXT(','))&&vals_it!=vals.end()) {
-			value.erase(std::remove_if(value.begin(), value.end(), [](TCHAR ch){ return std::isspace<TCHAR>(ch, std::locale::classic()); }), value.end());
+		while (std::getline(vals_ss, value, comma)&&vals_it!=vals.end()) {
+			value.erase(std::remove_if(value.begin(), value.end(), [](BLV_TCHAR ch){ return std::isspace<BLV_TCHAR>(ch, std::locale::classic()); }), value.end());
 			ValList.push_back(std::make_pair(value, *vals_it));
 			vals_it++;
 		}
 	}
 	template <bool U=unique, typename std::enable_if<U>::type* = nullptr>
-	BasicLabeledValues(const TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList() {
-		TSTRINGSTREAM vals_ss(vals_str);
-		TSTRING value;
+	BasicLabeledValues(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList() {
+		BLV_TSTRINGSTREAM vals_ss(vals_str);
+		BLV_TSTRING value;
 		typename std::initializer_list<ValT>::iterator vals_it=vals.begin();
-		while (std::getline(vals_ss, value, TEXT(','))&&vals_it!=vals.end()) {
-			value.erase(std::remove_if(value.begin(), value.end(), [](TCHAR ch){ return std::isspace<TCHAR>(ch, std::locale::classic()); }), value.end());
+		while (std::getline(vals_ss, value, comma)&&vals_it!=vals.end()) {
+			value.erase(std::remove_if(value.begin(), value.end(), [](BLV_TCHAR ch){ return std::isspace<BLV_TCHAR>(ch, std::locale::classic()); }), value.end());
 			ValList.push_back(std::make_pair(value, *vals_it));
 			vals_it++;
 		}
-		std::sort(ValList.begin(), ValList.end(), [](const std::pair<TSTRING, ValT> &L, const std::pair<TSTRING, ValT> &R){
+		std::sort(ValList.begin(), ValList.end(), [](const std::pair<BLV_TSTRING, ValT> &L, const std::pair<BLV_TSTRING, ValT> &R){
 			return L.second<R.second;
 		});
-		ValList.erase(std::unique(ValList.begin(), ValList.end(), [](const std::pair<TSTRING, ValT> &L, const std::pair<TSTRING, ValT> &R){
+		ValList.erase(std::unique(ValList.begin(), ValList.end(), [](const std::pair<BLV_TSTRING, ValT> &L, const std::pair<BLV_TSTRING, ValT> &R){
 			return L.second==R.second;
 		}), ValList.end());
 	}
-	ValT Find(const TSTRING& label, const ValT& def_val) {
-		for (std::pair<TSTRING, ValT> &val_pair: ValList)
+	ValT Find(const BLV_TSTRING& label, const ValT& def_val=ValT()) {
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
 			if (val_pair.first==label) return val_pair.second;
 		return def_val;
 	}
 	size_t Size() {
 		return ValList.size();
 	}
-	size_t Matches(std::function<bool(const TSTRING&, ArgT, size_t)> enum_function) {
+	size_t Matches(std::function<bool(const BLV_TSTRING&, ArgT)> enum_function) {
 		size_t count=0;
-		for (std::pair<TSTRING, ValT> &val_pair: ValList)
-			if (enum_function(val_pair.first, val_pair.second, count)) count++;
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
+			if (enum_function(val_pair.first, val_pair.second)) count++;
 		return count;
 	}
-	size_t Values(std::function<bool(const TSTRING&, ArgT, size_t)> enum_function) {
+	size_t Matches(const ValT& value) {
 		size_t count=0;
-		for (std::pair<TSTRING, ValT> &val_pair: ValList)
-			if (enum_function(val_pair.first, val_pair.second, count++)) return count-1;
-		return ValList.size();
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
+			if (value==val_pair.second) count++;
+		return count;
 	}
-	TSTRING Values() {
-		TSTRING result;
-		Values([&result](const TSTRING& label, ArgT value, size_t idx){
-			result+=(idx?TSTRING(TEXT(", ")):TSTRING())+label;
-			return false;
-		});
+	bool Values(std::function<bool(const BLV_TSTRING&, ArgT)> enum_function) {
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
+			if (enum_function(val_pair.first, val_pair.second)) return true;
+		return false;
+	}
+	BLV_TSTRING Values() {
+		BLV_TSTRING result;
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
+			if (result.empty()) result=val_pair.first;
+				else result+=comma+space+val_pair.first;
 		return result;
 	}
-	size_t Enums(const ValT& enums, std::function<bool(const TSTRING&, ArgT, bool, size_t)> enum_function) {
+	size_t Enums(const ValT& enums, std::function<bool(const BLV_TSTRING&, ArgT, bool)> enum_function) {
 		size_t count=0;
-		for (std::pair<TSTRING, ValT> &val_pair: ValList)
-			if (enums==val_pair.second&&enum_function(val_pair.first, val_pair.second, false, count++)) return count;
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
+			if (enums==val_pair.second&&(count++, enum_function(val_pair.first, val_pair.second, false))) return count;
 		if (!count)
-			enum_function(TEXT(""), enums, true, 0);
+			enum_function(BLV_TSTRING(), enums, true);
 		return count;
 	}
-	TSTRING Enums(const ValT& enums) {
-		TSTRING result;
-		Enums(enums, [&result](const TSTRING& label, ArgT value, bool unknown, size_t idx){
-			if (!unknown)
-				result+=(idx?TSTRING(TEXT(", ")):TSTRING())+label;
-			return false;
-		});
+	BLV_TSTRING Enums(const ValT& enums) {
+		BLV_TSTRING result;
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList) 
+			if (enums==val_pair.second) {
+				if (result.empty()) result=val_pair.first;
+					else result+=comma+space+val_pair.first;
+			}
 		return result;
 	}
-	TSTRING operator()(const ValT& value) {
-		TSTRING result;
-		Enums(value, [&result](const TSTRING& label, ArgT value, bool unknown, size_t idx){
-			if (!unknown) {
-				result=label;
-				return true;
-			} else
-				return false;
-		});
-		return result;
+	BLV_TSTRING operator()(const ValT& value, const BLV_TSTRING& def_label=BLV_TSTRING()) {
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
+			if (value==val_pair.second) return val_pair.first;
+		return def_label;
 	}
-	size_t Flags(ValT flags, std::function<bool(const TSTRING&, ArgT, bool, size_t)> enum_function) {
+	BLV_TSTRING operator()(const ValT& value, std::function<BLV_TSTRING(ArgT)> def_fn) {
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
+			if (value==val_pair.second) return val_pair.first;
+		return def_label(value);
+	}
+	size_t Flags(ValT flags, std::function<bool(const BLV_TSTRING&, ArgT, bool)> enum_function) {
 		ValT checked_flags=0;
 		size_t count=0;
-		for (std::pair<TSTRING, ValT> &val_pair: ValList)
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
 			if ((flags&val_pair.second)==val_pair.second) {
 				checked_flags|=val_pair.second;
-				if (enum_function(val_pair.first, val_pair.second, false, count++)) return count;
+				count++;
+				if (enum_function(val_pair.first, val_pair.second, false)) return count;
 			}
 		if (checked_flags!=flags) {
 			flags&=~checked_flags;
-			enum_function(TEXT(""), flags, true, count);
+			enum_function(BLV_TSTRING(), flags, true);
 		}
 		return count;
 	}
-	TSTRING Flags(const ValT& flags) {
-		TSTRING result;
-		Flags(flags, [&result](const TSTRING& label, ArgT value, bool unknown, size_t idx){
-			if (!unknown)
-				result+=(idx?TSTRING(TEXT(", ")):TSTRING())+label;
-			return false;
-		});
+	BLV_TSTRING Flags(const ValT& flags) {
+		BLV_TSTRING result;
+		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
+			if ((flags&val_pair.second)==val_pair.second) {
+				if (result.empty()) result=val_pair.first;
+					else result+=comma+space+val_pair.first;
+			}
 		return result;
 	}
 };
 
+template <typename ValT, typename ArgT, bool unique, typename BLV_TCHAR>
+BLV_TCHAR BasicLabeledValues<ValT, ArgT, unique, BLV_TCHAR>::comma=std::use_facet<std::ctype<BLV_TCHAR>>(std::locale()).widen(',');
+
+template <typename ValT, typename ArgT, bool unique, typename BLV_TCHAR>
+BLV_TCHAR BasicLabeledValues<ValT, ArgT, unique, BLV_TCHAR>::space=std::use_facet<std::ctype<BLV_TCHAR>>(std::locale()).widen(' ');
+
 #ifdef _WIN32
 typedef BasicLabeledValues<DWORD> LabeledValues;
 #else
-#undef TEXT
 typedef BasicLabeledValues<unsigned long> LabeledValues;
 #endif
 
