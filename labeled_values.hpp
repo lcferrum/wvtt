@@ -2,9 +2,9 @@
 #define LABELED_VALUES_HPP
 
 #include <string>
-#include <sstream>
 #include <vector>
 #include <locale>
+#include <sstream>
 #include <algorithm>
 #include <functional>
 #include <initializer_list>
@@ -24,30 +24,29 @@ class BasicLabeledValues {
 	typedef std::basic_stringstream<BLV_TCHAR> BLV_TSTRINGSTREAM;
 private:
 	std::vector<std::pair<BLV_TSTRING, ValT>> ValList;
-	static BLV_TCHAR comma;
-	static BLV_TCHAR space;
-public:
-	template <bool U=unique, typename std::enable_if<!U>::type* = nullptr>
-	BasicLabeledValues(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList() {
-		BLV_TSTRINGSTREAM vals_ss(vals_str);
-		BLV_TSTRING value;
+	BLV_TCHAR comma;
+	BLV_TCHAR space;
+	
+	void CommonConstructor(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals) {
+		BLV_TSTRING value(vals_str);
+		value.erase(std::remove_if(value.begin(), value.end(), std::bind(std::isspace<BLV_TCHAR>, std::placeholders::_1, std::locale::classic())), value.end());
+		BLV_TSTRINGSTREAM vals_ss(value);
 		typename std::initializer_list<ValT>::iterator vals_it=vals.begin();
 		while (std::getline(vals_ss, value, comma)&&vals_it!=vals.end()) {
-			value.erase(std::remove_if(value.begin(), value.end(), [](BLV_TCHAR ch){ return std::isspace<BLV_TCHAR>(ch, std::locale::classic()); }), value.end());
 			ValList.push_back(std::make_pair(value, *vals_it));
 			vals_it++;
 		}
 	}
+public:
+	template <bool U=unique, typename std::enable_if<!U>::type* = nullptr>
+	BasicLabeledValues(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList(),
+		comma(std::use_facet<std::ctype<BLV_TCHAR>>(std::locale::classic()).widen(',')), space(std::use_facet<std::ctype<BLV_TCHAR>>(std::locale::classic()).widen(' ')) {
+		CommonConstructor(vals_str, vals);
+	}
 	template <bool U=unique, typename std::enable_if<U>::type* = nullptr>
-	BasicLabeledValues(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList() {
-		BLV_TSTRINGSTREAM vals_ss(vals_str);
-		BLV_TSTRING value;
-		typename std::initializer_list<ValT>::iterator vals_it=vals.begin();
-		while (std::getline(vals_ss, value, comma)&&vals_it!=vals.end()) {
-			value.erase(std::remove_if(value.begin(), value.end(), [](BLV_TCHAR ch){ return std::isspace<BLV_TCHAR>(ch, std::locale::classic()); }), value.end());
-			ValList.push_back(std::make_pair(value, *vals_it));
-			vals_it++;
-		}
+	BasicLabeledValues(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList(), 
+		comma(std::use_facet<std::ctype<BLV_TCHAR>>(std::locale::classic()).widen(',')), space(std::use_facet<std::ctype<BLV_TCHAR>>(std::locale::classic()).widen(' ')) {
+		CommonConstructor(vals_str, vals);
 		std::sort(ValList.begin(), ValList.end(), [](const std::pair<BLV_TSTRING, ValT> &L, const std::pair<BLV_TSTRING, ValT> &R){
 			return L.second<R.second;
 		});
@@ -84,7 +83,7 @@ public:
 		BLV_TSTRING result;
 		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
 			if (result.empty()) result=val_pair.first;
-				else result+=comma+space+val_pair.first;
+				else result+=BLV_TSTRING({comma, space})+val_pair.first;
 		return result;
 	}
 	size_t Enums(const ValT& enums, std::function<bool(const BLV_TSTRING&, ArgT, bool)> enum_function) {
@@ -100,7 +99,7 @@ public:
 		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList) 
 			if (enums==val_pair.second) {
 				if (result.empty()) result=val_pair.first;
-					else result+=comma+space+val_pair.first;
+					else result+=BLV_TSTRING({comma, space})+val_pair.first;
 			}
 		return result;
 	}
@@ -112,7 +111,7 @@ public:
 	BLV_TSTRING operator()(const ValT& value, std::function<BLV_TSTRING(ArgT)> def_fn) {
 		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
 			if (value==val_pair.second) return val_pair.first;
-		return def_label(value);
+		return def_fn(value);
 	}
 	size_t Flags(ValT flags, std::function<bool(const BLV_TSTRING&, ArgT, bool)> enum_function) {
 		ValT checked_flags=0;
@@ -134,17 +133,11 @@ public:
 		for (std::pair<BLV_TSTRING, ValT> &val_pair: ValList)
 			if ((flags&val_pair.second)==val_pair.second) {
 				if (result.empty()) result=val_pair.first;
-					else result+=comma+space+val_pair.first;
+					else result+=BLV_TSTRING({comma, space})+val_pair.first;
 			}
 		return result;
 	}
 };
-
-template <typename ValT, typename ArgT, bool unique, typename BLV_TCHAR>
-BLV_TCHAR BasicLabeledValues<ValT, ArgT, unique, BLV_TCHAR>::comma=std::use_facet<std::ctype<BLV_TCHAR>>(std::locale()).widen(',');
-
-template <typename ValT, typename ArgT, bool unique, typename BLV_TCHAR>
-BLV_TCHAR BasicLabeledValues<ValT, ArgT, unique, BLV_TCHAR>::space=std::use_facet<std::ctype<BLV_TCHAR>>(std::locale()).widen(' ');
 
 #ifdef _WIN32
 typedef BasicLabeledValues<DWORD> LabeledValues;

@@ -553,35 +553,37 @@ void PrintFileInformation(const char* query_path)
 }
 
 void GetSupportedOSInformationFromCompatibilityContext() {
-	bool failed=true;
-	
 	if (fnQueryActCtxW) {
 		HANDLE act_ctx_handle=NULL;
 		SIZE_T ret_size=0;
-		if (!QueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, NULL, 0, &ret_size)&&
-			ret_size&&GetLastError()==ERROR_INSUFFICIENT_BUFFER) {
-			ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION *ctx_compat_info=(ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION*)new BYTE[ret_size];
+		if (QueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, NULL, 0, &ret_size)||GetLastError()==ERROR_INSUFFICIENT_BUFFER) {
+			bool found_guid=false;			
 			
-			if (QueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, ctx_compat_info, ret_size, &ret_size)) {
-				failed=false;
-				std::cout<<"OS compatibility contexts supported by current application manifest:"<<std::endl;
-				for (DWORD idx=0; idx<ctx_compat_info->ElementCount; idx++) {
-					if (ctx_compat_info->Elements[idx].Type==ACTCTX_COMPATIBILITY_ELEMENT_TYPE_OS) {
-						OsGuids.Enums(ctx_compat_info->Elements[idx].Id, [](const std::string& label, const GUID& value, bool unknown){
-							if (unknown)
-								std::cout<<"\tUNKNOWN GUID ("<<COUT_GUID(value)<<")"<<std::endl;
-							else
-								std::cout<<"\t"<<label<<std::endl;
-							return false;
-						});
+			std::cout<<"QueryActCtxW (ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION):"<<std::endl;
+					
+			if (ret_size) {
+				ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION *ctx_compat_info=(ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION*)new BYTE[ret_size];			
+				if (QueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, ctx_compat_info, ret_size, &ret_size)) {
+					for (DWORD idx=0; idx<ctx_compat_info->ElementCount; idx++) {
+						if (ctx_compat_info->Elements[idx].Type==ACTCTX_COMPATIBILITY_ELEMENT_TYPE_OS) {
+							found_guid=true;
+							OsGuids.Enums(ctx_compat_info->Elements[idx].Id, [](const std::string& label, const GUID& value, bool unknown){
+								if (unknown)
+									std::cout<<"\tUNKNOWN OS GUID ("<<COUT_GUID(value)<<")"<<std::endl;
+								else
+									std::cout<<"\t"<<label<<std::endl;
+								return false;
+							});
+						}
 					}
 				}
+				delete[] (BYTE*)ctx_compat_info;
 			}
 			
-			delete[] (BYTE*)ctx_compat_info;
-		}
-	}		
-	
-	if (failed)
-		std::cout<<"Compatibility context information not available!"<<std::endl;
+			if (!found_guid)
+				std::cout<<"\tOS CONTEXT GUIDS NOT FOUND"<<std::endl;
+		} else
+			std::cout<<"QueryActCtxW failed!"<<std::endl;
+	} else
+		std::cout<<"Can't load QueryActCtxW from kernel32.dll!"<<std::endl;		
 }
