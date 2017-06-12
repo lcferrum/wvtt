@@ -16,12 +16,14 @@ pNtQueryInformationFile fnNtQueryInformationFile=NULL;
 pNtQueryVirtualMemory fnNtQueryVirtualMemory=NULL;
 pGetFileAttributesW fnGetFileAttributesW=NULL;
 pQueryActCtxW fnQueryActCtxW=NULL;
+pGetSecurityInfo fnGetSecurityInfo=NULL;
+pLookupAccountSidA fnLookupAccountSidA=NULL;
 pwine_get_version fnwine_get_version=NULL;
 
 std::unique_ptr<Externs> Externs::instance;
 
 Externs::Externs(): 
-	hNtDll(NULL), hKernel32(NULL), hVersion(NULL)
+	hNtDll(NULL), hKernel32(NULL), hVersion(NULL), hAdvapi32(NULL)
 {
 	LoadFunctions();
 }
@@ -46,6 +48,7 @@ void Externs::LoadFunctions()
 	hNtDll=LoadLibrary("ntdll.dll");
 	hKernel32=LoadLibrary("kernel32.dll");
 	hVersion=LoadLibrary("version.dll");
+	hAdvapi32=LoadLibrary("advapi32.dll");
 
 	if (hNtDll) {
 		fnRtlGetVersion=(pRtlGetVersion)GetProcAddress(hNtDll, "RtlGetVersion");
@@ -72,6 +75,11 @@ void Externs::LoadFunctions()
 		fnGetFileVersionInfoSizeExW=(pGetFileVersionInfoSizeExW)GetProcAddress(hVersion, "GetFileVersionInfoSizeExW");
 		fnGetFileVersionInfoExW=(pGetFileVersionInfoExW)GetProcAddress(hVersion, "GetFileVersionInfoExW");
 	}
+	
+	if (hAdvapi32) {
+		fnGetSecurityInfo=(pGetSecurityInfo)GetProcAddress(hAdvapi32, "GetSecurityInfo");
+		fnLookupAccountSidA=(pLookupAccountSidA)GetProcAddress(hAdvapi32, "LookupAccountSidA");
+	}
 }
 
 //And here we are testing for NULLs because LoadLibrary can fail in method above
@@ -80,4 +88,5 @@ void Externs::UnloadFunctions()
 	if (hNtDll) FreeLibrary(hNtDll);
 	if (hKernel32) FreeLibrary(hKernel32);
 	if (hVersion) FreeLibrary(hVersion);
+	if (hAdvapi32) FreeLibrary(hAdvapi32);
 }

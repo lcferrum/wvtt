@@ -27,7 +27,7 @@ private:
 	BLV_TCHAR comma;
 	BLV_TCHAR space;
 	
-	void CommonConstructor(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals) {
+	void FillValList(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals) {
 		BLV_TSTRING value(vals_str);
 		value.erase(std::remove_if(value.begin(), value.end(), std::bind(std::isspace<BLV_TCHAR>, std::placeholders::_1, std::locale::classic())), value.end());
 		BLV_TSTRINGSTREAM vals_ss(value);
@@ -41,12 +41,12 @@ public:
 	template <bool U=unique, typename std::enable_if<!U>::type* = nullptr>
 	BasicLabeledValues(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList(),
 		comma(std::use_facet<std::ctype<BLV_TCHAR>>(std::locale::classic()).widen(',')), space(std::use_facet<std::ctype<BLV_TCHAR>>(std::locale::classic()).widen(' ')) {
-		CommonConstructor(vals_str, vals);
+		FillValList(vals_str, vals);
 	}
 	template <bool U=unique, typename std::enable_if<U>::type* = nullptr>
 	BasicLabeledValues(const BLV_TCHAR* vals_str, const std::initializer_list<ValT> &vals): ValList(), 
 		comma(std::use_facet<std::ctype<BLV_TCHAR>>(std::locale::classic()).widen(',')), space(std::use_facet<std::ctype<BLV_TCHAR>>(std::locale::classic()).widen(' ')) {
-		CommonConstructor(vals_str, vals);
+		FillValList(vals_str, vals);
 		std::sort(ValList.begin(), ValList.end(), [](const std::pair<BLV_TSTRING, ValT> &L, const std::pair<BLV_TSTRING, ValT> &R){
 			return L.second<R.second;
 		});

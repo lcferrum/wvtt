@@ -18,6 +18,8 @@ extern pGetFileVersionInfoSizeExW fnGetFileVersionInfoSizeExW;
 extern pGetProductInfo fnGetProductInfo;
 extern pGetVersionExA fnGetVersionExA;
 extern pQueryActCtxW fnQueryActCtxW;
+extern pGetSecurityInfo fnGetSecurityInfo;
+extern pLookupAccountSidA fnLookupAccountSidA;
 extern pwine_get_version fnwine_get_version;
 
 typedef struct _LANGANDCODEPAGE {
@@ -586,4 +588,15 @@ void GetSupportedOSInformationFromCompatibilityContext() {
 			std::cout<<"QueryActCtxW failed!"<<std::endl;
 	} else
 		std::cout<<"Can't load QueryActCtxW from kernel32.dll!"<<std::endl;		
+}
+
+void PrintFileOwner(HANDLE hFile)
+{
+	if (fnGetSecurityInfo&&fnLookupAccountSidA) {
+		PSID pSidOwner;
+		PSECURITY_DESCRIPTOR pSD;
+		if (fnGetSecurityInfo(hFile, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, &pSidOwner, NULL, NULL, NULL, &pSD)==ERROR_SUCCESS) {
+			LocalFree(pSD);
+		}
+	}
 }

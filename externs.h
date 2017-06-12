@@ -12,6 +12,7 @@ private:
 	HMODULE hNtDll;
 	HMODULE hKernel32;
 	HMODULE hVersion;
+	HMODULE hAdvapi32;
 	
 	void LoadFunctions();
 	void UnloadFunctions();
@@ -44,6 +45,8 @@ enum MEMORY_INFORMATION_CLASS {MemorySectionName=0x2};
 typedef NTSTATUS (WINAPI *pNtQueryVirtualMemory)(HANDLE ProcessHandle, PVOID BaseAddress, MEMORY_INFORMATION_CLASS MemoryInformationClass, PVOID MemoryInformation, SIZE_T MemoryInformationLength, PSIZE_T ReturnLength);
 typedef DWORD (WINAPI *pGetFileAttributesW)(LPCWSTR lpFileName);
 typedef BOOL (WINAPI *pQueryActCtxW)(DWORD dwFlags, HANDLE hActCtx, PVOID pvSubInstance, ULONG ulInfoClass, PVOID pvBuffer, SIZE_T cbBuffer, SIZE_T *pcbWrittenOrRequired);
+typedef DWORD (WINAPI *pGetSecurityInfo)(HANDLE handle, SE_OBJECT_TYPE ObjectType, SECURITY_INFORMATION SecurityInfo, PSID *ppsidOwner, PSID *ppsidGroup, PACL *ppDacl, PACL *ppSacl, PSECURITY_DESCRIPTOR *ppSecurityDescriptor);
+typedef BOOL (WINAPI *pLookupAccountSidA)(LPCSTR lpSystemName, PSID lpSid, LPSTR lpName, LPDWORD cchName, LPSTR lpReferencedDomainName, LPDWORD cchReferencedDomainName, PSID_NAME_USE peUse);
 typedef const char* (CDECL *pwine_get_version)(void);
 
 #endif //EXTERNS_H
