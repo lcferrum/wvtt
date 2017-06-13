@@ -17,6 +17,8 @@ pNtQueryVirtualMemory fnNtQueryVirtualMemory=NULL;
 pGetFileAttributesW fnGetFileAttributesW=NULL;
 pQueryActCtxW fnQueryActCtxW=NULL;
 pGetSecurityInfo fnGetSecurityInfo=NULL;
+pGetKernelObjectSecurity fnGetKernelObjectSecurity=NULL;
+pGetSecurityDescriptorOwner fnGetSecurityDescriptorOwner=NULL;
 pLookupAccountSidA fnLookupAccountSidA=NULL;
 pwine_get_version fnwine_get_version=NULL;
 
@@ -77,6 +79,8 @@ void Externs::LoadFunctions()
 	}
 	
 	if (hAdvapi32) {
+		fnGetKernelObjectSecurity=(pGetKernelObjectSecurity)GetProcAddress(hAdvapi32, "GetKernelObjectSecurity");
+		fnGetSecurityDescriptorOwner=(pGetSecurityDescriptorOwner)GetProcAddress(hAdvapi32, "GetSecurityDescriptorOwner");
 		fnGetSecurityInfo=(pGetSecurityInfo)GetProcAddress(hAdvapi32, "GetSecurityInfo");
 		fnLookupAccountSidA=(pLookupAccountSidA)GetProcAddress(hAdvapi32, "LookupAccountSidA");
 	}

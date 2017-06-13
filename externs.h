@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <windows.h>
+#include <accctrl.h>
 #include <winternl.h>
 
 class Externs {
@@ -46,6 +47,8 @@ typedef NTSTATUS (WINAPI *pNtQueryVirtualMemory)(HANDLE ProcessHandle, PVOID Bas
 typedef DWORD (WINAPI *pGetFileAttributesW)(LPCWSTR lpFileName);
 typedef BOOL (WINAPI *pQueryActCtxW)(DWORD dwFlags, HANDLE hActCtx, PVOID pvSubInstance, ULONG ulInfoClass, PVOID pvBuffer, SIZE_T cbBuffer, SIZE_T *pcbWrittenOrRequired);
 typedef DWORD (WINAPI *pGetSecurityInfo)(HANDLE handle, SE_OBJECT_TYPE ObjectType, SECURITY_INFORMATION SecurityInfo, PSID *ppsidOwner, PSID *ppsidGroup, PACL *ppDacl, PACL *ppSacl, PSECURITY_DESCRIPTOR *ppSecurityDescriptor);
+typedef BOOL (WINAPI *pGetKernelObjectSecurity)(HANDLE Handle, SECURITY_INFORMATION RequestedInformation, PSECURITY_DESCRIPTOR pSecurityDescriptor, DWORD nLength, LPDWORD lpnLengthNeeded);
+typedef BOOL (WINAPI *pGetSecurityDescriptorOwner)(PSECURITY_DESCRIPTOR pSecurityDescriptor, PSID *pOwner, LPBOOL lpbOwnerDefaulted);
 typedef BOOL (WINAPI *pLookupAccountSidA)(LPCSTR lpSystemName, PSID lpSid, LPSTR lpName, LPDWORD cchName, LPSTR lpReferencedDomainName, LPDWORD cchReferencedDomainName, PSID_NAME_USE peUse);
 typedef const char* (CDECL *pwine_get_version)(void);
 

@@ -19,6 +19,8 @@ extern pGetProductInfo fnGetProductInfo;
 extern pGetVersionExA fnGetVersionExA;
 extern pQueryActCtxW fnQueryActCtxW;
 extern pGetSecurityInfo fnGetSecurityInfo;
+extern pGetKernelObjectSecurity fnGetKernelObjectSecurity;
+extern pGetSecurityDescriptorOwner fnGetSecurityDescriptorOwner;
 extern pLookupAccountSidA fnLookupAccountSidA;
 extern pwine_get_version fnwine_get_version;
 
@@ -68,6 +70,7 @@ BasicLabeledValues<GUID, const GUID&> OsGuids(LABELED_VALUES_ARG(XP_CONTEXT_GUID
 
 void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
 void PrintFileInformation(const char* query_path);
+void PrintFileOwner(HANDLE hFile);
 void GetSupportedOSInformationFromCompatibilityContext();
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex);
 BOOL GetFileVersionInfoWrapper(LPCSTR lpstrFilename, DWORD dwHandle, DWORD dwLen, LPVOID lpData);
@@ -485,6 +488,8 @@ void PrintFileInformation(const char* query_path)
 				got_info=true;
 			}
 			
+			PrintFileOwner(hFile);
+			
 			CloseHandle(hFile); 
 		}
 		
@@ -558,14 +563,14 @@ void GetSupportedOSInformationFromCompatibilityContext() {
 	if (fnQueryActCtxW) {
 		HANDLE act_ctx_handle=NULL;
 		SIZE_T ret_size=0;
-		if (QueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, NULL, 0, &ret_size)||GetLastError()==ERROR_INSUFFICIENT_BUFFER) {
+		if (fnQueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, NULL, 0, &ret_size)||GetLastError()==ERROR_INSUFFICIENT_BUFFER) {
 			bool found_guid=false;			
 			
 			std::cout<<"QueryActCtxW (ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION):"<<std::endl;
 					
 			if (ret_size) {
 				ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION *ctx_compat_info=(ACTIVATION_CONTEXT_COMPATIBILITY_INFORMATION*)new BYTE[ret_size];			
-				if (QueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, ctx_compat_info, ret_size, &ret_size)) {
+				if (fnQueryActCtxW(0, act_ctx_handle, NULL, CompatibilityInformationInActivationContext, ctx_compat_info, ret_size, &ret_size)) {
 					for (DWORD idx=0; idx<ctx_compat_info->ElementCount; idx++) {
 						if (ctx_compat_info->Elements[idx].Type==ACTCTX_COMPATIBILITY_ELEMENT_TYPE_OS) {
 							found_guid=true;
@@ -592,11 +597,40 @@ void GetSupportedOSInformationFromCompatibilityContext() {
 
 void PrintFileOwner(HANDLE hFile)
 {
-	if (fnGetSecurityInfo&&fnLookupAccountSidA) {
+	if (fnLookupAccountSidA) {
 		PSID pSidOwner;
-		PSECURITY_DESCRIPTOR pSD;
-		if (fnGetSecurityInfo(hFile, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, &pSidOwner, NULL, NULL, NULL, &pSD)==ERROR_SUCCESS) {
-			LocalFree(pSD);
+		auto fnLookupAccountSidOwner=[&pSidOwner](){
+			DWORD account_len=0;
+			DWORD domain_len=0;
+			SID_NAME_USE sid_type;
+			if (fnLookupAccountSidA(NULL, pSidOwner, NULL, &account_len, NULL, &domain_len, &sid_type)==FALSE&&account_len&&domain_len) {
+				char account[account_len];
+				char domain[domain_len];
+				if (fnLookupAccountSidA(NULL, pSidOwner, account, &account_len, domain, &domain_len, &sid_type)) {
+					if (strlen(domain))
+						std::cout<<"\tOWNER_SECURITY_INFORMATION = \""<<domain<<"\\"<<account<<"\""<<std::endl;
+					else
+						std::cout<<"\tOWNER_SECURITY_INFORMATION = \""<<account<<"\""<<std::endl;
+				}
+			}
+		};
+		
+		if (fnGetSecurityInfo) {
+			PSECURITY_DESCRIPTOR pSD;
+			if (fnGetSecurityInfo(hFile, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, &pSidOwner, NULL, NULL, NULL, &pSD)==ERROR_SUCCESS) {
+				fnLookupAccountSidOwner();
+				LocalFree(pSD);
+			}
+		} else if (fnGetKernelObjectSecurity&&fnGetSecurityDescriptorOwner) {
+			DWORD sz=0;
+			if (fnGetKernelObjectSecurity(hFile, OWNER_SECURITY_INFORMATION, NULL, 0, &sz)==FALSE&&sz) {
+				BYTE sd[sz];
+				if (fnGetKernelObjectSecurity(hFile, OWNER_SECURITY_INFORMATION, (PSECURITY_DESCRIPTOR)&sd, sz, &sz)) {
+					BOOL def;
+					if (fnGetSecurityDescriptorOwner((PSECURITY_DESCRIPTOR)&sd, &pSidOwner, &def))
+						fnLookupAccountSidOwner();
+				}
+			}
 		}
 	}
 }
