@@ -16,7 +16,7 @@ _GetSystemMetricsSehWrapper@8:
 	 0x0C Memory pointer to int variable where GetSystemMetrics result will be stored
 	*/
 	pushl %ebp                        /* Creating stack frame (we need to save EBP anyway, see below) */
-	mov %esp, %ebp                
+	movl %esp, %ebp                
 	subl $16, %esp                    /* Allocating space for local variables */
 	movl %ebx, -0x04(%ebp)            /* Save current EBX, ESI, EDI and EBP (saved earlier) register state ... */
 	movl %esi, -0x08(%ebp)

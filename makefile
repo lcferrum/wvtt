@@ -97,7 +97,7 @@ endif
 # Common HOST=x86_3X section
 ifeq ($(HOST),x86_3X)
 	LDFLAGS+=-Wl,-pie -Wl,-e_CompatCRTStartup -Wl,--subsystem,console:3.10
-	SRC+=compat.cpp
+	SRC+=compat.cpp msvcrt_iface.S
 	UPXFLAGS+=--strip-relocs=0
 	X86_3X=-DX86_3X=1
 endif

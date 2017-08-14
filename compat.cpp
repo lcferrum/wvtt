@@ -30,9 +30,12 @@ extern "C" void mainCRTStartup();
 #define OriginalCRTStarup mainCRTStartup
 #endif
 
+extern "C" HMODULE PreLoadMsvcrt();
+
 extern "C" void CompatCRTStartup()
 {
-	HMODULE hModule=GetModuleHandle("msvcrt.dll");
+	//HMODULE hModule=GetModuleHandle("msvcrt.dll");
+	HMODULE hModule=PreLoadMsvcrt();
 	
 	if (!(_IAT___mb_cur_max=(decltype(_IAT___mb_cur_max))GetProcAddress(hModule, "__mb_cur_max"))) {
 		_IAT___mb_cur_max=__p___mb_cur_max();
