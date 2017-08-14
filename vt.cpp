@@ -86,6 +86,9 @@ extern template bool __gnu_cxx::operator==(const std::string::iterator&, const s
 
 #if defined(X86_3X)&&!defined(_WIN64)
 extern "C" bool __stdcall GetSystemMetricsSehWrapper(int nIndex, int* result);
+#if X86_3X==2
+extern "C" char* msvcrt_name_in_use;
+#endif
 #endif
 
 int main(int argc, char* argv[])
@@ -107,9 +110,10 @@ int main(int argc, char* argv[])
 	std::cout.unsetf(std::ios::showbase);
 	std::cout.setf(std::ios::uppercase); 
 	
-#ifdef X86_3X
+#if X86_3X==1
 	//Disable Windows error dialog popup for failed LoadLibrary attempts on NT3.x and Win32s
 	//This is done so GetSystemFilePath can search for needed files using LoadLibrary
+	//In case of X86_3XAM (X86_3X==2) the same is done earlier in compat.cpp/CompatCRTStartup
 	SetErrorMode(SEM_NOOPENFILEERRORBOX|SEM_FAILCRITICALERRORS);
 #endif
 
@@ -263,6 +267,10 @@ int main(int argc, char* argv[])
 #else
 	std::cout<<"This binary is built for x86 arch"<<std::endl;
 #endif
+
+#if !defined(_WIN64)&&(X86_3X==2)
+	std::cout<<"Microsoft C Runtime Library = \""<<msvcrt_name_in_use<<"\""<<std::endl;
+#endif
 	
 	if (fnIsWow64Process) {	
 		//Test if current process is running under WOW64
@@ -293,6 +301,9 @@ int main(int argc, char* argv[])
 	//As with registry entries there can be various files that can hint on specific OS version variations which are otherwise impossible to detect with functions above
 	//Below are just most common ones used in version detection
 	PrintFileInformation("KERNEL32.DLL");
+#if !defined(_WIN64)&&(X86_3X==2)
+	PrintFileInformation(msvcrt_name_in_use);
+#endif
 	PrintFileInformation("USER.EXE");
 	PrintFileInformation("NTKERN.VXD");
 	
