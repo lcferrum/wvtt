@@ -1,6 +1,6 @@
 .file "any_msvcrt.S"
 #ifndef _WIN64
-.bss
+.bss                            /* Uninitialized data */
 .globl _msvcrt_name_in_use
 .globl __imp____getmainargs
 .globl __imp____p___mb_cur_max
@@ -232,8 +232,8 @@ __imp__stricoll:
 	.space 4
 __imp__write:
 	.space 4
-	
-.section .rdata,"dr"
+
+.section .rdata,"dr"            /* Initialized read-only data */
 MSVCRT_FN_NAME_TABLE:
 	.long _NAME___getmainargs
 	.long _NAME___p___mb_cur_max
@@ -657,7 +657,7 @@ next_fn:
 	movl %eax, MSVCRT_IAT_SUBST(%esi)
 	subl $4, %esi
 	jnc next_fn
-	movl %ebx, %eax
+	movl %ebx, %eax             /* MSVCRT loaded - exit w/ EAX=MSVCRT_HANDLE */
 exit_fn:
 	leave                       /* Leaving stack frame */
 	popl %esi                   /* Restoring ESI */

@@ -68,5 +68,8 @@ links to MSVCRT.DLL, MSVCRT40.DLL or MSVCRT20.DLL, whichever found first:
 
     make BUILD=Clang_362 HOST=x86_3XAM
 
-For other compile options please check makefile itself.
+These "maximum compatibility" builds are tied to certain version of static libs
+and object files used in MinGW build pipeline. Currently only MinGW 4.7.2 is
+supported (and Clang 3.6.2 which uses MinGW libs and object files). For other
+compile options please check makefile itself.
  

@@ -39,7 +39,7 @@ extern "C" void CompatCRTStartup()
 	HMODULE hModule=PreLoadMsvcrt();
 	
 	if (!hModule) {
-		MessageBox(NULL, "Can't find MSVCRT.DLL.", "Unable To Locate Component", MB_ICONERROR|MB_OK);
+		MessageBox(NULL, "Failed to load Microsoft C Runtime Library.", "Unable To Locate Component", MB_ICONERROR|MB_OK);
 		ExitProcess(0xC0000135);
 		return;
 	}
