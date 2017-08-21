@@ -109,11 +109,10 @@ ifneq (,$(filter $(HOST),x86_3X x86_3XAM))
 	LDFLAGS+=-Wl,-pie -Wl,-e_CompatCRTStartup -Wl,--subsystem,console:3.10
 	SRC+=compat.cpp
 	UPXFLAGS+=--strip-relocs=0
+	X86_3X+=-DX86_3X
 ifeq ($(HOST),x86_3XAM)
 	SRC+=any_msvcrt.S
-	X86_3X+=-DX86_3X=2
-else
-	X86_3X+=-DX86_3X=1
+	X86_3X+=-DX86_3XAM
 endif
 endif
 

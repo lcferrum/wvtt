@@ -23,18 +23,18 @@ BOOL (WINAPI *_IAT_IsDBCSLeadByteEx)(UINT, BYTE) asm("__imp__IsDBCSLeadByteEx@8"
 extern "C" BOOL WINAPI IsDBCSLeadByteEx(UINT CodePage, BYTE TestChar) { return _IAT_IsDBCSLeadByteEx(CodePage, TestChar); }
 
 extern "C" void mainCRTStartup();
-#if X86_3X==2
+#ifdef X86_3XAM
 extern "C" HMODULE PreLoadMsvcrt();
 #endif
 
 extern "C" void CompatCRTStartup()
 {
-#if X86_3X==1
+#ifndef X86_3XAM
 	HMODULE hModule=GetModuleHandle("msvcrt.dll");
 #else
 	//Disable Windows error dialog popup for failed LoadLibrary attempts on NT3.x and Win32s
 	//This is done so GetSystemFilePath can search for needed files using LoadLibrary
-	//For X86_3XAM (X86_3X==2) this is done this early because of LoadLibrary calls in PreLoadMsvcrt
+	//For X86_3XAM this is done this early because of LoadLibrary calls in PreLoadMsvcrt
 	SetErrorMode(SEM_NOOPENFILEERRORBOX|SEM_FAILCRITICALERRORS);
 	HMODULE hModule=PreLoadMsvcrt();
 	

@@ -50,14 +50,10 @@ platform, with maximum compatibility options enabled, requires MSVCRT v2.0 or
 newer. Needed version is already distributed with Windows starting from Win NT4
 and Win 95. For Win NT3.X and Win 3.1 w/ Win32s you should get MSVCRT
 separately. For example, MSVCRT v2.0 (MSVCRT20.DLL) for Win NT3.X and Win32s
-(separate DLLs) is included with Microsoft Visual C++ 2.0 distribution. One
-thing to keep in mind is that Windows Version Test Tools binary is linked to
-system "numberless" MSVCRT (MSVCRT.DLL) and not to one of the "numbered" DLLs
-from various Visual C++ redistributables (MSVCRTXX.DLL). So if your Windows OS
-of choice doesn't support "numberless" versions of MSVCRT (versions starting
-from 4.2), you should rename available DLL to MSVCRT.DLL and place it besides
-"numbered" version in system folder or place it in the same folder as Windows
-Version Test Tools binary.
+(separate DLLs) is included with Microsoft Visual C++ 2.0 distribution. Install
+it with corresponding Visual C++ redistributable or, in case of standalone DLL,
+copy it to system folder. Windows Version Test Tools x86 binary accepts MSVCRT
+named either MSVCRT.DLL, MSVCRT40.DLL or MSVCRT20.DLL.
 
 64-bit binary compiled for x86-64 platform supports any MSVCRT version that is
 supported by compatible OS.
