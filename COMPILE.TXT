@@ -55,12 +55,21 @@ To build x86 binary with Clang 3.6.2 type the following:
 
     make BUILD=Clang_362 HOST=x86
 	
-Ordinary Clang 3.6.2 x86 build supports only Win 9x/NT4 or newer. To support Win
-NT3.x and Win 3.1 w/ Win32s you should make "maximum compatibility" x86 build:
+Ordinary Clang 3.6.2 x86 build supports only Win 9x/NT4 or newer. To support
+Win NT3.x and Win 3.1 w/ Win32s you should make "maximum compatibility" x86
+build:
 
     make BUILD=Clang_362 HOST=x86_3X
     
 x86_3X build is featurewise identical to x86, but has some additional
-compatibility hacks enabled. For other compile options please check makefile
-itself.
+compatibility hacks enabled. All builds are linked to MSVCRT.DLL. But there is
+also "any MSVCRT" version of "maximum compatibility" x86 build that dynamically
+links to MSVCRT.DLL, MSVCRT40.DLL or MSVCRT20.DLL, whichever found first:
+
+    make BUILD=Clang_362 HOST=x86_3XAM
+
+These "maximum compatibility" builds are tied to certain version of static libs
+and object files used in MinGW build pipeline. Currently only MinGW 4.7.2 is
+supported (and Clang 3.6.2 which uses MinGW libs and object files). For other
+compile options please check makefile itself.
  

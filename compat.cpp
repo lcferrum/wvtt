@@ -22,17 +22,28 @@ static BOOL WINAPI _COMPAT_IsDBCSLeadByteEx(UINT CodePage, BYTE TestChar);
 BOOL (WINAPI *_IAT_IsDBCSLeadByteEx)(UINT, BYTE) asm("__imp__IsDBCSLeadByteEx@8")=NULL;
 extern "C" BOOL WINAPI IsDBCSLeadByteEx(UINT CodePage, BYTE TestChar) { return _IAT_IsDBCSLeadByteEx(CodePage, TestChar); }
 
-#ifdef COMPAT_GUI
-extern "C" void WinMainCRTStartup();
-#define OriginalCRTStarup WinMainCRTStartup
-#else
 extern "C" void mainCRTStartup();
-#define OriginalCRTStarup mainCRTStartup
+#ifdef X86_3XAM
+extern "C" HMODULE PreLoadMsvcrt();
 #endif
 
 extern "C" void CompatCRTStartup()
 {
+#ifndef X86_3XAM
 	HMODULE hModule=GetModuleHandle("msvcrt.dll");
+#else
+	//Disable Windows error dialog popup for failed LoadLibrary attempts on NT3.x and Win32s
+	//This is done so GetSystemFilePath can search for needed files using LoadLibrary
+	//For X86_3XAM this is done this early because of LoadLibrary calls in PreLoadMsvcrt
+	SetErrorMode(SEM_NOOPENFILEERRORBOX|SEM_FAILCRITICALERRORS);
+	HMODULE hModule=PreLoadMsvcrt();
+	
+	if (!hModule) {
+		MessageBox(NULL, "Failed to load Microsoft C Runtime Library.", "Unable To Locate Component", MB_ICONERROR|MB_OK);
+		ExitProcess(0xC0000135);
+		return;
+	}
+#endif
 	
 	if (!(_IAT___mb_cur_max=(decltype(_IAT___mb_cur_max))GetProcAddress(hModule, "__mb_cur_max"))) {
 		_IAT___mb_cur_max=__p___mb_cur_max();
@@ -56,7 +67,7 @@ extern "C" void CompatCRTStartup()
 		_IAT_IsDBCSLeadByteEx=_COMPAT_IsDBCSLeadByteEx;
 	}
 		
-	OriginalCRTStarup();
+	mainCRTStartup();
 }
 
 static BOOL WINAPI _COMPAT_IsDBCSLeadByteEx(UINT CodePage, BYTE TestChar)

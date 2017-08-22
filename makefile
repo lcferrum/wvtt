@@ -10,10 +10,10 @@
 
 # Conditionals
 ifeq (,$(if $(filter-out upx clean,$(MAKECMDGOALS)),,$(MAKECMDGOALS)))
-ifeq (,$(and $(filter $(BUILD),MinGW-w64 MinGW-w64_pthreads MinGW_472 Clang_362),$(filter $(HOST),x86-64 x86 x86_3X)))
+ifeq (,$(and $(filter $(BUILD),MinGW-w64 MinGW-w64_pthreads MinGW_472 Clang_362),$(filter $(HOST),x86-64 x86 x86_3X x86_3XAM)))
 $(info Compiler and/or OS type is invalid! Please correctly set BUILD and HOST variables.)
 $(info Possible BUILD values: MinGW-w64, MinGW-w64_pthreads, MinGW_472, Clang_362)
-$(info Possible HOST values: x86-64, x86, x86_3X)
+$(info Possible HOST values: x86-64, x86, x86_3X, x86_3XAM)
 $(error BUILD/HOST is invalid)
 endif
 endif
@@ -48,6 +48,8 @@ ifeq ($(HOST),x86)
 endif
 ifeq ($(HOST),x86_3X)
 endif
+ifeq ($(HOST),x86_3XAM)
+endif
 endif
 
 # Current MinGW-w64 with Win32 threads
@@ -60,6 +62,9 @@ ifeq ($(HOST),x86)
 	CC=i686-w64-mingw32-g++
 endif
 ifeq ($(HOST),x86_3X)
+$(error not implemented)
+endif
+ifeq ($(HOST),x86_3XAM)
 $(error not implemented)
 endif
 endif
@@ -77,6 +82,9 @@ endif
 ifeq ($(HOST),x86_3X)
 $(error not implemented)
 endif
+ifeq ($(HOST),x86_3XAM)
+$(error not implemented)
+endif
 endif
 
 # Clang 3.6.2 with includes from current MinGW-w64
@@ -92,14 +100,20 @@ ifeq ($(HOST),x86)
 endif
 ifeq ($(HOST),x86_3X)
 endif
+ifeq ($(HOST),x86_3XAM)
+endif
 endif
 
-# Common HOST=x86_3X section
-ifeq ($(HOST),x86_3X)
+# Common HOST=x86_3X/x86_3XAM section
+ifneq (,$(filter $(HOST),x86_3X x86_3XAM))
 	LDFLAGS+=-Wl,-pie -Wl,-e_CompatCRTStartup -Wl,--subsystem,console:3.10
 	SRC+=compat.cpp
 	UPXFLAGS+=--strip-relocs=0
-	X86_3X=-DX86_3X=1
+	X86_3X+=-DX86_3X
+ifeq ($(HOST),x86_3XAM)
+	SRC+=any_msvcrt.S
+	X86_3X+=-DX86_3XAM
+endif
 endif
 
 .PHONY: all clean upx exe
