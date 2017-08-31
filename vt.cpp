@@ -603,10 +603,16 @@ void PrintFileOwner(HANDLE hFile)
 				char account[account_len];
 				char domain[domain_len];
 				if (fnLookupAccountSidA(NULL, pSidOwner, account, &account_len, domain, &domain_len, &sid_type)) {
-					if (strlen(domain))
+#ifdef X86_3X
+					//Early versions of NT may return empty doamin name in case of BUILTIN domain
+					//If everything went ok LookupAccountSid returns actual number of written charactes (w/o NULL-terminator) in cchName and cchReferencedDomainName
+					if (domain_len)
 						std::cout<<"\tOWNER_SECURITY_INFORMATION = \""<<domain<<"\\"<<account<<"\""<<std::endl;
 					else
 						std::cout<<"\tOWNER_SECURITY_INFORMATION = \""<<account<<"\""<<std::endl;
+#else
+					std::cout<<"\tOWNER_SECURITY_INFORMATION = \""<<domain<<"\\"<<account<<"\""<<std::endl;
+#endif
 				}
 			}
 		};
