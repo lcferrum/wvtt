@@ -599,12 +599,14 @@ void PrintFileOwner(HANDLE hFile)
 			DWORD account_len=0;
 			DWORD domain_len=0;
 			SID_NAME_USE sid_type;
+			//When LookupAccountSid fails because buffer are not large enough - returned buffer length includes NULL-terminator
 			if (fnLookupAccountSidA(NULL, pSidOwner, NULL, &account_len, NULL, &domain_len, &sid_type)==FALSE&&account_len&&domain_len) {
 				char account[account_len];
 				char domain[domain_len];
+				//When LookupAccountSid succeeds - returned buffer length doesn't include NULL-terminator
 				if (fnLookupAccountSidA(NULL, pSidOwner, account, &account_len, domain, &domain_len, &sid_type)) {
 #ifdef X86_3X
-					//Early versions of NT may return empty doamin name in case of BUILTIN domain
+					//Early versions of NT may return empty domain name in case of BUILTIN domain
 					//If everything went ok LookupAccountSid returns actual number of written charactes (w/o NULL-terminator) in cchName and cchReferencedDomainName
 					if (domain_len)
 						std::cout<<"\tOWNER_SECURITY_INFORMATION = \""<<domain<<"\\"<<account<<"\""<<std::endl;
