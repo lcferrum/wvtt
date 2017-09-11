@@ -619,12 +619,14 @@ void PrintFileOwner(HANDLE hFile)
 			}
 		};
 		
+		//GetSecurityInfo method works only on WinNT4+
 		if (fnGetSecurityInfo) {
 			PSECURITY_DESCRIPTOR pSD;
 			if (fnGetSecurityInfo(hFile, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, &pSidOwner, NULL, NULL, NULL, &pSD)==ERROR_SUCCESS) {
 				fnLookupAccountSidOwner();
 				LocalFree(pSD);
 			}
+		//GetKernelObjectSecurity/GetSecurityDescriptorOwner method works on Win NT31+ but is potentially unsafe on Win 2000+ - fortunately, code above will work on Win 2000+ instead
 		} else if (fnGetKernelObjectSecurity&&fnGetSecurityDescriptorOwner) {
 			DWORD sz=0;
 			if (fnGetKernelObjectSecurity(hFile, OWNER_SECURITY_INFORMATION, NULL, 0, &sz)==FALSE&&sz) {
@@ -636,5 +638,6 @@ void PrintFileOwner(HANDLE hFile)
 				}
 			}
 		}
+		//No way to get file owner for Win 9x or Win32s
 	}
 }
