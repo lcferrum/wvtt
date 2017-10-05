@@ -288,6 +288,7 @@ int main(int argc, char* argv[])
 	PrintFileInformation("USER.EXE");
 	PrintFileInformation("NTKERN.VXD");
 	
+	std::cout.flush();
 	cout_tee_buf.Deactivate();
 	
 	bool save_output=false;
