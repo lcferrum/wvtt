@@ -357,7 +357,11 @@ bool FPRoutines::GetSFP_LoadLibrary(const char* fname, std::string &fpath)
 
 	//First see if this library was already loaded by current process
 	if ((hMod=GetModuleHandle(fname))) {
-		//LoadLibrary can't load libraries if it's path exceeds MAX_PATH so it's safe to assume that MAX_PATH is enough to hold full library path
+		//MAX_PATH related issues is a tough question regarding loading modules
+		//At present (Win 10) it seems that LoadLibrary and CreateProcess really doesn't handle path lengths more than MAX_PATH
+		//Current workaround is converting such paths to short "8.3" format and using it with aforementioned functions
+		//In this case paths returned by GetModuleFileName won't exceed MAX_PATH because they will be in 8.3 format
+		//(for executable, modules loaded from executable directory and modules loaded with 8.3 paths)
 		char full_path[MAX_PATH];
 		DWORD retlen=GetModuleFileName(hMod, full_path, MAX_PATH);
 		//GetModuleFileName returns 0 if everything is bad and nSize (which is MAX_PATH) if buffer size is insufficient and returned path truncated
