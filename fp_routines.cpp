@@ -227,7 +227,7 @@ bool FPRoutines::UnredirectWow64FsPath(const char* fpath, std::string &real_fpat
 bool FPRoutines::KernelToWin32Path(const wchar_t* krn_fpath, std::wstring &w32_fpath, USHORT krn_ulen, USHORT krn_umaxlen)
 {
 	//GetFileAttributesW is dynamically loaded along with NT function so to use the same code on Win 9x
-	if (!krn_ulen||fnGetFileAttributesW||!fnNtCreateFile||!fnNtQueryObject||!fnNtQueryInformationFile)
+	if (!krn_ulen||!fnGetFileAttributesW||!fnNtCreateFile||!fnNtQueryObject||!fnNtQueryInformationFile)
 		return false;
 	
 	//Function accepts both UNICODE_STRINGs and null-terminated wchar_t arrays
