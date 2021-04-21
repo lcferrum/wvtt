@@ -20,6 +20,7 @@ pGetSecurityInfo fnGetSecurityInfo=NULL;
 pGetKernelObjectSecurity fnGetKernelObjectSecurity=NULL;
 pGetSecurityDescriptorOwner fnGetSecurityDescriptorOwner=NULL;
 pLookupAccountSidA fnLookupAccountSidA=NULL;
+pRtlGetDeviceFamilyInfoEnum fnRtlGetDeviceFamilyInfoEnum=NULL;
 pwine_get_version fnwine_get_version=NULL;
 
 std::unique_ptr<Externs> Externs::instance;
@@ -60,6 +61,7 @@ void Externs::LoadFunctions()
 		fnNtOpenSymbolicLinkObject=(pNtOpenSymbolicLinkObject)GetProcAddress(hNtDll, "NtOpenSymbolicLinkObject");
 		fnNtQuerySymbolicLinkObject=(pNtQuerySymbolicLinkObject)GetProcAddress(hNtDll, "NtQuerySymbolicLinkObject");
 		fnNtQueryVirtualMemory=(pNtQueryVirtualMemory)GetProcAddress(hNtDll, "NtQueryVirtualMemory");
+		fnRtlGetDeviceFamilyInfoEnum=(pRtlGetDeviceFamilyInfoEnum)GetProcAddress(hNtDll, "RtlGetDeviceFamilyInfoEnum");
 		fnwine_get_version=(pwine_get_version)GetProcAddress(hNtDll, "wine_get_version");
 	}
 	

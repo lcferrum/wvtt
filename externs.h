@@ -50,6 +50,7 @@ typedef DWORD (WINAPI *pGetSecurityInfo)(HANDLE handle, SE_OBJECT_TYPE ObjectTyp
 typedef BOOL (WINAPI *pGetKernelObjectSecurity)(HANDLE Handle, SECURITY_INFORMATION RequestedInformation, PSECURITY_DESCRIPTOR pSecurityDescriptor, DWORD nLength, LPDWORD lpnLengthNeeded);
 typedef BOOL (WINAPI *pGetSecurityDescriptorOwner)(PSECURITY_DESCRIPTOR pSecurityDescriptor, PSID *pOwner, LPBOOL lpbOwnerDefaulted);
 typedef BOOL (WINAPI *pLookupAccountSidA)(LPCSTR lpSystemName, PSID lpSid, LPSTR lpName, LPDWORD cchName, LPSTR lpReferencedDomainName, LPDWORD cchReferencedDomainName, PSID_NAME_USE peUse);
+typedef VOID (WINAPI *pRtlGetDeviceFamilyInfoEnum)(ULONGLONG *UAPInfo, PULONG DeviceFamily, PULONG DeviceForm);
 typedef const char* (CDECL *pwine_get_version)(void);
 
 #endif //EXTERNS_H

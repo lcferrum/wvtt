@@ -23,6 +23,7 @@ extern pGetSecurityInfo fnGetSecurityInfo;
 extern pGetKernelObjectSecurity fnGetKernelObjectSecurity;
 extern pGetSecurityDescriptorOwner fnGetSecurityDescriptorOwner;
 extern pLookupAccountSidA fnLookupAccountSidA;
+extern pRtlGetDeviceFamilyInfoEnum fnRtlGetDeviceFamilyInfoEnum;
 extern pwine_get_version fnwine_get_version;
 
 typedef struct _LANGANDCODEPAGE {
@@ -46,10 +47,11 @@ LabeledValues ProductTypes(LABELED_VALUES_ARG(VER_NT_WORKSTATION, VER_NT_DOMAIN_
 LabeledValues SystemMetrics(LABELED_VALUES_ARG(SM_FUNDAMENTALS, SM_WEPOS, SM_DEBUG, SM_PENWINDOWS, SM_DBCSENABLED, SM_IMMENABLED, SM_SLOWMACHINE, SM_TABLETPC, SM_MEDIACENTER, SM_STARTER, SM_SERVERR2));
 LabeledValues ProcessorArchitectures(LABELED_VALUES_ARG(PROCESSOR_ARCHITECTURE_INTEL, PROCESSOR_ARCHITECTURE_MIPS, PROCESSOR_ARCHITECTURE_ALPHA, PROCESSOR_ARCHITECTURE_PPC, PROCESSOR_ARCHITECTURE_SHX, PROCESSOR_ARCHITECTURE_ARM, PROCESSOR_ARCHITECTURE_IA64, PROCESSOR_ARCHITECTURE_ALPHA64, PROCESSOR_ARCHITECTURE_MSIL, PROCESSOR_ARCHITECTURE_AMD64, PROCESSOR_ARCHITECTURE_IA32_ON_WIN64, PROCESSOR_ARCHITECTURE_NEUTRAL, PROCESSOR_ARCHITECTURE_UNKNOWN));
 LabeledValues ProductInfoTypes(LABELED_VALUES_ARG(PRODUCT_UNDEFINED, PRODUCT_ULTIMATE, PRODUCT_HOME_BASIC, PRODUCT_HOME_PREMIUM, PRODUCT_ENTERPRISE, PRODUCT_HOME_BASIC_N, PRODUCT_BUSINESS, PRODUCT_STANDARD_SERVER, PRODUCT_DATACENTER_SERVER, PRODUCT_SMALLBUSINESS_SERVER, PRODUCT_ENTERPRISE_SERVER, PRODUCT_STARTER, PRODUCT_DATACENTER_SERVER_CORE, PRODUCT_STANDARD_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_CORE, PRODUCT_ENTERPRISE_SERVER_IA64, PRODUCT_BUSINESS_N, PRODUCT_WEB_SERVER, PRODUCT_CLUSTER_SERVER, PRODUCT_HOME_SERVER, PRODUCT_STORAGE_EXPRESS_SERVER, PRODUCT_STORAGE_STANDARD_SERVER, PRODUCT_STORAGE_WORKGROUP_SERVER, PRODUCT_STORAGE_ENTERPRISE_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM, PRODUCT_UNLICENSED, PRODUCT_HOME_PREMIUM_N, PRODUCT_ENTERPRISE_N, PRODUCT_ULTIMATE_N, PRODUCT_WEB_SERVER_CORE, PRODUCT_MEDIUMBUSINESS_SERVER_MANAGEMENT, PRODUCT_MEDIUMBUSINESS_SERVER_SECURITY, PRODUCT_MEDIUMBUSINESS_SERVER_MESSAGING, PRODUCT_SERVER_FOUNDATION, PRODUCT_HOME_PREMIUM_SERVER, PRODUCT_SERVER_FOR_SMALLBUSINESS_V, PRODUCT_STANDARD_SERVER_V, PRODUCT_DATACENTER_SERVER_V, PRODUCT_ENTERPRISE_SERVER_V, PRODUCT_DATACENTER_SERVER_CORE_V, PRODUCT_STANDARD_SERVER_CORE_V, PRODUCT_ENTERPRISE_SERVER_CORE_V, PRODUCT_HYPERV, PRODUCT_STORAGE_EXPRESS_SERVER_CORE, PRODUCT_STORAGE_STANDARD_SERVER_CORE, PRODUCT_STORAGE_WORKGROUP_SERVER_CORE, PRODUCT_STORAGE_ENTERPRISE_SERVER_CORE, PRODUCT_STARTER_N, PRODUCT_PROFESSIONAL, PRODUCT_PROFESSIONAL_N, PRODUCT_SB_SOLUTION_SERVER, PRODUCT_SERVER_FOR_SB_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS, PRODUCT_STANDARD_SERVER_SOLUTIONS_CORE, PRODUCT_SB_SOLUTION_SERVER_EM, PRODUCT_SERVER_FOR_SB_SOLUTIONS_EM, PRODUCT_SOLUTION_EMBEDDEDSERVER, PRODUCT_SOLUTION_EMBEDDEDSERVER_CORE, PRODUCT_SMALLBUSINESS_SERVER_PREMIUM_CORE, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMT, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDL, PRODUCT_ESSENTIALBUSINESS_SERVER_MGMTSVC, PRODUCT_ESSENTIALBUSINESS_SERVER_ADDLSVC, PRODUCT_CLUSTER_SERVER_V, PRODUCT_EMBEDDED, PRODUCT_STARTER_E, PRODUCT_HOME_BASIC_E, PRODUCT_HOME_PREMIUM_E, PRODUCT_PROFESSIONAL_E, PRODUCT_ENTERPRISE_E, PRODUCT_ULTIMATE_E, PRODUCT_ARM64_SERVER, PRODUCT_AZURE_NANO_SERVER, PRODUCT_AZURE_SERVER_CORE, PRODUCT_CLOUD, PRODUCT_CLOUD_HOST_INFRASTRUCTURE_SERVER, PRODUCT_CLOUD_STORAGE_SERVER, PRODUCT_CLOUDN, PRODUCT_CONNECTED_CAR, PRODUCT_CORE, PRODUCT_CORE_ARM, PRODUCT_CORE_CONNECTED, PRODUCT_CORE_CONNECTED_COUNTRYSPECIFIC, PRODUCT_CORE_CONNECTED_N, PRODUCT_CORE_CONNECTED_SINGLELANGUAGE, PRODUCT_CORE_COUNTRYSPECIFIC, PRODUCT_CORE_N, PRODUCT_CORE_SINGLELANGUAGE, PRODUCT_DATACENTER_A_SERVER_CORE, PRODUCT_DATACENTER_EVALUATION_SERVER, PRODUCT_DATACENTER_EVALUATION_SERVER_CORE, PRODUCT_DATACENTER_NANO_SERVER, PRODUCT_DATACENTER_WS_SERVER_CORE, PRODUCT_EDUCATION, PRODUCT_EDUCATION_N, PRODUCT_EMBEDDED_A, PRODUCT_EMBEDDED_AUTOMOTIVE, PRODUCT_EMBEDDED_E, PRODUCT_EMBEDDED_E_EVAL, PRODUCT_EMBEDDED_EVAL, PRODUCT_EMBEDDED_INDUSTRY, PRODUCT_EMBEDDED_INDUSTRY_A, PRODUCT_EMBEDDED_INDUSTRY_A_E, PRODUCT_EMBEDDED_INDUSTRY_E, PRODUCT_EMBEDDED_INDUSTRY_E_EVAL, PRODUCT_EMBEDDED_INDUSTRY_EVAL, PRODUCT_ENTERPRISE_EVALUATION, PRODUCT_ENTERPRISE_N_EVALUATION, PRODUCT_ENTERPRISE_S, PRODUCT_ENTERPRISE_S_EVALUATION, PRODUCT_ENTERPRISE_S_N, PRODUCT_ENTERPRISE_S_N_EVALUATION, PRODUCT_ENTERPRISE_SUBSCRIPTION, PRODUCT_ENTERPRISE_SUBSCRIPTION_N, PRODUCT_ENTERPRISEG, PRODUCT_ENTERPRISEGN, PRODUCT_HOLOGRAPHIC, PRODUCT_INDUSTRY_HANDHELD, PRODUCT_IOTUAP, PRODUCT_IOTUAPCOMMERCIAL, PRODUCT_MOBILE_CORE, PRODUCT_MOBILE_ENTERPRISE, PRODUCT_MULTIPOINT_PREMIUM_SERVER, PRODUCT_MULTIPOINT_STANDARD_SERVER, PRODUCT_NANO_SERVER, PRODUCT_PPI_PRO, PRODUCT_PRERELEASE, PRODUCT_PRERELEASE_ARM, PRODUCT_PRERELEASE_N, PRODUCT_PRO_CHINA, PRODUCT_PRO_FOR_EDUCATION, PRODUCT_PRO_FOR_EDUCATION_N, PRODUCT_PRO_SINGLE_LANGUAGE, PRODUCT_PRO_WORKSTATION, PRODUCT_PRO_WORKSTATION_N, PRODUCT_PROFESSIONAL_EMBEDDED, PRODUCT_PROFESSIONAL_PLUS, PRODUCT_PROFESSIONAL_S, PRODUCT_PROFESSIONAL_S_N, PRODUCT_PROFESSIONAL_STUDENT, PRODUCT_PROFESSIONAL_STUDENT_N, PRODUCT_PROFESSIONAL_WMC, PRODUCT_STANDARD_A_SERVER_CORE, PRODUCT_STANDARD_EVALUATION_SERVER, PRODUCT_STANDARD_EVALUATION_SERVER_CORE, PRODUCT_STANDARD_NANO_SERVER, PRODUCT_STANDARD_WS_SERVER_CORE, PRODUCT_STORAGE_STANDARD_EVALUATION_SERVER, PRODUCT_STORAGE_WORKGROUP_EVALUATION_SERVER, PRODUCT_THINPC, PRODUCT_UTILITY_VM));
+LabeledValues CSDReleaseTypes(LABELED_VALUES_ARG(SP_RELEASE_TYPE_NONE, SP_RELEASE_TYPE_INTERNAL, SP_RELEASE_TYPE_RC, SP_RELEASE_TYPE_BETA));
 BasicLabeledValues<HKEY> RegistryHives(LABELED_VALUES_ARG(HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_PERFORMANCE_DATA, HKEY_PERFORMANCE_TEXT, HKEY_USERS));
 BasicLabeledValues<GUID, const GUID&> OsGuids(LABELED_VALUES_ARG(XP_CONTEXT_GUID, VISTA_CONTEXT_GUID, WIN7_CONTEXT_GUID, WIN8_CONTEXT_GUID, WIN81_CONTEXT_GUID, WIN10_CONTEXT_GUID));
 
-void PrintRegistryKey(HKEY hive, const char* keypath, const char* value);
+void PrintRegistryKey(HKEY hive, const char* keypath, const char* value, std::function<bool(const std::string&, DWORD, BYTE*, DWORD)> custom_process=nullptr);
 void PrintFileInformation(const char* query_path);
 void PrintFileOwner(HANDLE hFile);
 void GetSupportedOSInformationFromCompatibilityContext();
@@ -75,6 +77,7 @@ extern "C" char* msvcrt_name_in_use;
 int main(int argc, char* argv[])
 {
 	Externs::MakeInstance();
+	FPRoutines::FillDriveList();
 	
 	std::string cout_copy;
 	CreateOstreamTeeBuf(std::cout, cout_tee_buf, BindStdStringAppend(cout_copy));
@@ -102,6 +105,7 @@ int main(int argc, char* argv[])
 	if (GetVersionWrapper(osvi_ex)) {
 		std::cout<<"\tdwMajorVersion = "<<COUT_ADEC(osvi_ex.dwMajorVersion)<<std::endl;
 		std::cout<<"\tdwMinorVersion = "<<COUT_ADEC(osvi_ex.dwMinorVersion)<<std::endl;
+		//On Win 9x dwBuildNumber contains not only build number, but also major and minor version
 		std::cout<<"\tdwBuildNumber = "<<COUT_ADEC(osvi_ex.dwBuildNumber)<<" = "<<COUT_ADEC(HIBYTE(HIWORD(osvi_ex.dwBuildNumber)))<<"."<<COUT_ADEC(LOBYTE(HIWORD(osvi_ex.dwBuildNumber)))<<"."<<COUT_ADEC((DWORD)LOWORD(osvi_ex.dwBuildNumber))<<std::endl;
 		std::cout<<"\tdwPlatformId = "<<COUT_FHEX(osvi_ex.dwPlatformId, 8)<<std::endl;
 		PlatfromIds.Enums(osvi_ex.dwPlatformId, [](const std::string& label, DWORD value, bool unknown){
@@ -111,10 +115,16 @@ int main(int argc, char* argv[])
 				std::cout<<"\t\t"<<label<<std::endl;
 			return false;
 		});
+		//CSD version is an alias for Service Pack version
+		//CSD actually stands for "Corrective Service Diskette" - a term coined for OS/2 method of distributing hotfixes
+		//These CSDs were versioned accordingly and could contain not only hotfixes, but also what was later called "ServicePak" or "FixPak"
+		//It seems that, because Microsoft was developing early versions of OS/2 in parallel with Windows, this term just stucked
 		std::cout<<"\tszCSDVersion = \""<<COUT_ADEC(osvi_ex.szCSDVersion)<<"\""<<std::endl;
 		if (osvi_ex.dwOSVersionInfoSize==sizeof(OSVERSIONINFOEX)) {
 			std::cout<<"\twServicePackMajor = "<<COUT_ADEC(osvi_ex.wServicePackMajor)<<std::endl;
-			std::cout<<"\twServicePackMinor = "<<COUT_ADEC(osvi_ex.wServicePackMinor)<<std::endl;
+			std::cout<<"\twServicePackMinor = "<<COUT_ADEC(osvi_ex.wServicePackMinor)<<" = '";
+			if (osvi_ex.wServicePackMinor) std::cout<<(char)('A'+osvi_ex.wServicePackMinor-1);
+			std::cout<<"'"<<std::endl;
 			std::cout<<"\twSuiteMask = "<<COUT_FHEX(osvi_ex.wSuiteMask, 4)<<std::endl;
 			if (!SuiteMasks.Flags(osvi_ex.wSuiteMask, [](const std::string& label, DWORD value, bool unknown){
 				if (unknown)
@@ -140,16 +150,23 @@ int main(int argc, char* argv[])
 	std::cout<<std::endl;
 
 	if (DWORD dwVersion=GetVersion()) {
-		//This information is mostly taken from MSDN Library October 1999
+		//This information is mostly taken from MSDN Library October 1999 and Win NT source code
 		//Newer MSDN versions omit non-NT related info for GetVersion
 		
-		std::cout<<"GetVersion:"<<std::endl;
+		std::cout<<"GetVersion = "<<COUT_FHEX(dwVersion, 8)<<std::endl;
 		std::cout<<"\tMajorVersion = "<<COUT_ADEC(LOBYTE(LOWORD(dwVersion)))<<std::endl;
 		std::cout<<"\tMinorVersion = "<<COUT_ADEC(HIBYTE(LOWORD(dwVersion)))<<std::endl;
-		std::cout<<"\tIsNT = "<<COUT_BOOL(!(dwVersion&0x80000000))<<std::endl;
+		//This is just OSVERSIONINFO(EX).dwPlatformId XORed with 0x2
+		std::cout<<"\tBogusPlatformId = "<<COUT_FHEX((dwVersion>>30)&0x3, 1)<<std::endl;
+		PlatfromIds.Enums((dwVersion>>30)^0x2, [](const std::string& label, DWORD value, bool unknown){
+			if (unknown)
+				std::cout<<"\t\tUNKNOWN VALUE ("<<COUT_FHEX(value, 8)<<")"<<std::endl;
+			else
+				std::cout<<"\t\t"<<label<<std::endl;
+			return false;
+		});
 		//This thing is "reserved" on Win 9x and "build number" on NT and Win32s
-		//On Win 9x/Me HIWORD(dwVersion) is always 0xC000, so "reserved" will always be 0x4000
-		std::cout<<"\tBldNumOrRes = "<<COUT_ADEC(HIWORD(dwVersion)&~0x8000)<<" = "<<COUT_FHEX(HIWORD(dwVersion)&~0x8000, 4)<<std::endl;
+		std::cout<<"\tBuildNumber = "<<COUT_ADEC(HIWORD(dwVersion)&0x3FFF)<<std::endl;
 		
 		//N.B.:
 		//HIWORD(dwVersion) treatment above is actual for Win32 API
@@ -227,10 +244,34 @@ int main(int argc, char* argv[])
 					std::cout<<"\t"<<label<<std::endl;
 				return false;
 			});
-		} else
+		} else {
 			std::cout<<"GetProductInfo failed!"<<std::endl;
-	} else
+		}
+	} else {
 		std::cout<<"Can't load GetProductInfo from kernel32.dll!"<<std::endl;
+	}
+	
+	std::cout<<std::endl;
+	
+	if (fnRtlGetDeviceFamilyInfoEnum) {
+		ULONGLONG UAPInfo=0;
+		ULONG DeviceFamily;
+		ULONG DeviceForm;
+		fnRtlGetDeviceFamilyInfoEnum(&UAPInfo, &DeviceFamily, &DeviceForm);
+		if (UAPInfo) {
+			std::cout<<"RtlGetDeviceFamilyInfoEnum.UAPInfo = "<<COUT_FHEX(UAPInfo, 16)<<std::endl;
+			std::cout<<"\tMajorVersion = "<<COUT_ADEC((UAPInfo&0xFFFF000000000000)>>48)<<std::endl;
+			std::cout<<"\tMinorVersion = "<<COUT_ADEC((UAPInfo&0x0000FFFF00000000)>>32)<<std::endl;
+			std::cout<<"\tBuildNumber = "<<COUT_ADEC((UAPInfo&0x00000000FFFF0000)>>16)<<std::endl;
+			//Update Build Revision
+			//This, with BuildNumber, fully qualifies Windows 10 build which is BuildNumber.UBR
+			std::cout<<"\tUBR = "<<COUT_ADEC(UAPInfo&0x000000000000FFFF)<<std::endl;
+		} else {
+			std::cout<<"RtlGetDeviceFamilyInfoEnum failed!"<<std::endl;
+		}
+	} else {
+		std::cout<<"Can't load RtlGetDeviceFamilyInfoEnum from ntdll.dll!"<<std::endl;
+	}
 	
 	std::cout<<std::endl;
 	
@@ -243,16 +284,18 @@ int main(int argc, char* argv[])
 	
 	std::cout<<std::endl;
 	
+#if !defined(_WIN64)&&defined(X86_3XAM)
+	std::cout<<"Microsoft C Runtime Library = \""<<msvcrt_name_in_use<<"\""<<std::endl;
+#else
+	std::cout<<"Microsoft C Runtime Library = \"MSVCRT.DLL\""<<std::endl;
+#endif
+	
 #ifdef _WIN64
 	std::cout<<"This binary is built for x86-64 arch"<<std::endl;
 #else
 	std::cout<<"This binary is built for x86 arch"<<std::endl;
 #endif
 
-#if !defined(_WIN64)&&defined(X86_3XAM)
-	std::cout<<"Microsoft C Runtime Library = \""<<msvcrt_name_in_use<<"\""<<std::endl;
-#endif
-	
 	if (fnIsWow64Process) {	
 		//Test if current process is running under WOW64
 		BOOL wow64;
@@ -267,13 +310,56 @@ int main(int argc, char* argv[])
 	
 	std::cout<<std::endl;
 	
-	//There are tons of registry entries that can be used to detect specific service pack, edition or suite variations not covered by functions above
+	//There are tons of registry entries that can be used to detect specific service pack, release, edition or suite variations not covered by functions above
 	//They are often exclusive to some specific minor version and have no meaning or absent on other versions
+	//Also note that some of the CurrentVersion register entries contain the same info that is returned by GetVersion variations
+	//And remember that, unlike values returned by GetVersion variations, registry values are user editable
 	//Below are most common values that will just give you a general idea of what OS version you are runnning
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName");
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "BuildLab");
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "BuildLabEx");
+	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ReleaseId");
+	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "UBR");
+	//Service Pack version in fully qualified string form
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CSDVersion");
+	//Service Pack release type
+	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Windows", "CSDReleaseType", [](const std::string& rpath, DWORD key_type, BYTE *regbuf, DWORD buflen){
+		if (key_type==REG_DWORD) {
+			std::cout<<rpath<<":\n\t"<<COUT_FHEX(*(DWORD*)regbuf, 8)<<std::endl;
+			CSDReleaseTypes.Enums(*(DWORD*)regbuf, [](const std::string& label, DWORD value, bool unknown){
+				if (unknown)
+					std::cout<<"\tUNKNOWN VALUE ("<<COUT_FHEX(value, 8)<<")"<<std::endl;
+				else
+					std::cout<<"\t"<<label<<std::endl;
+				return false;
+			});
+			return true;
+		} else {
+			return false;
+		}
+	});
+	//This is a Service Pack version in it's original DWORD form, direct copy of internal CmNtCSDVersion variable
+	//OSVERSIONINFOEX.wServicePackMajor/wServicePackMinor values are populated using the same variable
+	//Also, if you really need it, starting from NT4 it's copy is also available in PEB.OSCSDVersion
+	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Windows", "CSDVersion", [](const std::string& rpath, DWORD key_type, BYTE *regbuf, DWORD buflen){
+		if (key_type==REG_DWORD) {
+			std::cout<<rpath<<":\n\t"<<COUT_FHEX(*(DWORD*)regbuf, 8)<<std::endl;
+			//Lower-order 16-bits of CSDVersion is an actual Service Pack version
+			//In it's string form, minor portion is appended to major as an uppercase letter (e.g. 3.1 becomes "3A")
+			std::cout<<"\tMajor = "<<COUT_ADEC(HIBYTE(LOWORD(*(DWORD*)regbuf)))<<std::endl;
+			std::cout<<"\tMinor = "<<COUT_ADEC(LOBYTE(LOWORD(*(DWORD*)regbuf)))<<" = '";
+			if (LOBYTE(LOWORD(*(DWORD*)regbuf))) std::cout<<(char)('A'+LOBYTE(LOWORD(*(DWORD*)regbuf))-1);
+			std::cout<<"'"<<std::endl;
+			//High-order 16-bits of CSDVersion is a Service Pack build number (the same as in CSDBuildNumber), but actual interpretation depends on CSDReleaseType
+			//It's not used (and should be empty) for SP_RELEASE_TYPE_NONE
+			//For SP_RELEASE_TYPE_INTERNAL this is really a build number
+			//For SP_RELEASE_TYPE_RC and SP_RELEASE_TYPE_BETA this is RC/BETA version string in the form of "major.minor"
+			std::cout<<"\tBuild = "<<COUT_ADEC(HIWORD(*(DWORD*)regbuf))<<" = "<<COUT_ADEC(HIBYTE(HIWORD(*(DWORD*)regbuf)))<<"."<<COUT_ADEC(LOBYTE(HIWORD(*(DWORD*)regbuf)))<<std::endl;
+			return true;
+		} else {
+			return false;
+		}
+	});
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\ProductOptions", "ProductType");
 	PrintRegistryKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion", "ProductName");
 	
@@ -282,10 +368,14 @@ int main(int argc, char* argv[])
 	//As with registry entries there can be various files that can hint on specific OS version variations which are otherwise impossible to detect with functions above
 	//Below are just most common ones used in version detection
 	PrintFileInformation("KERNEL32.DLL");
+	PrintFileInformation("USER.EXE");
 #if !defined(_WIN64)&&defined(X86_3XAM)
 	PrintFileInformation(msvcrt_name_in_use);
+#else
+	PrintFileInformation("MSVCRT.DLL");
 #endif
-	PrintFileInformation("USER.EXE");
+	//NTKERN.VXD and VMM.VXD are installed by "USB Supplement for OSR2"
+	//You can check either of them - both report identical file info
 	PrintFileInformation("NTKERN.VXD");
 	
 	std::cout.flush();
@@ -322,27 +412,34 @@ int main(int argc, char* argv[])
 bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex)
 {
 	if (fnRtlGetVersion) {
-		RTL_OSVERSIONINFOEXW rtl_osvi_ex={sizeof(RTL_OSVERSIONINFOEXW)};
-		if (NT_SUCCESS(fnRtlGetVersion((PRTL_OSVERSIONINFOW)&rtl_osvi_ex))||(rtl_osvi_ex.dwOSVersionInfoSize=sizeof(RTL_OSVERSIONINFOW), NT_SUCCESS(fnRtlGetVersion((PRTL_OSVERSIONINFOW)&rtl_osvi_ex)))) {
-			if (WideCharToMultiByte(CP_ACP, 0, rtl_osvi_ex.szCSDVersion, sizeof(((RTL_OSVERSIONINFOEXW*)NULL)->szCSDVersion)/sizeof(wchar_t), osvi_ex.szCSDVersion, sizeof(((RTL_OSVERSIONINFOEXW*)NULL)->szCSDVersion), NULL, NULL)) {
-				osvi_ex.dwMajorVersion=rtl_osvi_ex.dwMajorVersion;
-				osvi_ex.dwMinorVersion=rtl_osvi_ex.dwMinorVersion;
-				osvi_ex.dwBuildNumber=rtl_osvi_ex.dwBuildNumber;
-				osvi_ex.dwPlatformId=rtl_osvi_ex.dwPlatformId;
-				if (rtl_osvi_ex.dwOSVersionInfoSize==sizeof(RTL_OSVERSIONINFOEXW)) {
-					std::cout<<"RtlGetVersion.RTL_OSVERSIONINFOEXW:"<<std::endl;
-					osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFOEX);
-					osvi_ex.wServicePackMajor=rtl_osvi_ex.wServicePackMajor;
-					osvi_ex.wServicePackMinor=rtl_osvi_ex.wServicePackMinor;
-					osvi_ex.wSuiteMask=rtl_osvi_ex.wSuiteMask;
-					osvi_ex.wProductType=rtl_osvi_ex.wProductType;
-					osvi_ex.wReserved=rtl_osvi_ex.wReserved;
-				} else {
-					std::cout<<"RtlGetVersion.RTL_OSVERSIONINFOW:"<<std::endl;
-					osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFO);
-				}
-				return true;
+		//RTL_OSVERSIONINFOEXW and OSVERSIONINFOEXW are essentially identical structures
+		//Internally non-kernel RtlGetVersion actually compares dwOSVersionInfoSize to OSVERSIONINFOEXW and not RTL_OSVERSIONINFOEXW 
+		OSVERSIONINFOEXW rtl_osvi_ex={sizeof(OSVERSIONINFOEXW)};
+		if (NT_SUCCESS(fnRtlGetVersion((PRTL_OSVERSIONINFOW)&rtl_osvi_ex))||(rtl_osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFOW), NT_SUCCESS(fnRtlGetVersion((PRTL_OSVERSIONINFOW)&rtl_osvi_ex)))) {
+			//Humorously enough, on Win 2k RtlGetVersion doesn't populate szCSDVersion, leaving this task to GetVersionEx
+			if (*rtl_osvi_ex.szCSDVersion) {
+				WideCharToMultiByte(CP_ACP, 0, rtl_osvi_ex.szCSDVersion, sizeof(((OSVERSIONINFOEXW*)NULL)->szCSDVersion)/sizeof(wchar_t), osvi_ex.szCSDVersion, sizeof(((OSVERSIONINFOEXW*)NULL)->szCSDVersion), NULL, NULL);
+			} else if (fnGetVersionExA) {
+				osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFO);
+				fnGetVersionExA((LPOSVERSIONINFO)&osvi_ex);
 			}
+			osvi_ex.dwMajorVersion=rtl_osvi_ex.dwMajorVersion;
+			osvi_ex.dwMinorVersion=rtl_osvi_ex.dwMinorVersion;
+			osvi_ex.dwBuildNumber=rtl_osvi_ex.dwBuildNumber;
+			osvi_ex.dwPlatformId=rtl_osvi_ex.dwPlatformId;
+			if (rtl_osvi_ex.dwOSVersionInfoSize==sizeof(OSVERSIONINFOEXW)) {
+				std::cout<<"RtlGetVersion.OSVERSIONINFOEX:"<<std::endl;
+				osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFOEX);
+				osvi_ex.wServicePackMajor=rtl_osvi_ex.wServicePackMajor;
+				osvi_ex.wServicePackMinor=rtl_osvi_ex.wServicePackMinor;
+				osvi_ex.wSuiteMask=rtl_osvi_ex.wSuiteMask;
+				osvi_ex.wProductType=rtl_osvi_ex.wProductType;
+				osvi_ex.wReserved=rtl_osvi_ex.wReserved;
+			} else {
+				std::cout<<"RtlGetVersion.OSVERSIONINFO:"<<std::endl;
+				osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFO);
+			}
+			return true;
 		}
 	} else if (fnGetVersionExA) {
 		osvi_ex.dwOSVersionInfoSize=sizeof(OSVERSIONINFOEX);
@@ -358,18 +455,25 @@ bool GetVersionWrapper(OSVERSIONINFOEX &osvi_ex)
 	return false;
 }
 
-void PrintRegistryKey(HKEY hive, const char* keypath, const char* value) 
+void PrintRegistryKey(HKEY hive, const char* keypath, const char* value, std::function<bool(const std::string&, DWORD, BYTE*, DWORD)> custom_process) 
 {
 	HKEY reg_key;
 	DWORD buflen;
 	DWORD key_type;
 	bool success=false;
 	
-	if (RegOpenKeyEx(hive, keypath, 0, KEY_READ|KEY_WOW64_64KEY, &reg_key)==ERROR_SUCCESS) {
+	//KEY_WOW64_64KEY flag causes pre-XP NT versions to fail
+	if (RegOpenKeyEx(hive, keypath, 0, KEY_READ|KEY_WOW64_64KEY, &reg_key)==ERROR_SUCCESS||RegOpenKeyEx(hive, keypath, 0, KEY_READ, &reg_key)==ERROR_SUCCESS) {
 		if (RegQueryValueEx(reg_key, value, NULL, &key_type, NULL, &buflen)==ERROR_SUCCESS) {
 			BYTE regbuf[buflen+sizeof(char)];	//+1 char for possible missing NULL terminator in case of REG_SZ and REG_EXPAND_SZ
 			if (RegQueryValueEx(reg_key, value, NULL, &key_type, regbuf, &buflen)==ERROR_SUCCESS) {
-				switch (key_type) {
+				if (custom_process) {
+					//Custom registry entry processing
+					//E.g. you can add support for REG_MULTI_SZ if needed
+					std::ostringstream rpath;
+					rpath<<RegistryHives(hive)<<"\\"<<keypath<<"\\"<<value;
+					success=custom_process(rpath.str(), key_type, regbuf, buflen);
+				} else switch (key_type) {
 					case REG_SZ:
 					case REG_EXPAND_SZ:
 						//It's not guaranteed that buffer returned by RegQueryValueEx is NULL-terminated
@@ -494,9 +598,9 @@ void PrintFileInformation(const char* query_path)
 		//Not far from what FPRoutines::GetSystemFilePath does internally
 		//But we need to show user actual absolute path for supplied file name and also make sure that the same file will be used with CreateFile/GetFileTime
 		//That's why we use FPRoutines::GetSystemFilePath
-		if (DWORD buflen=GetFileVersionInfoSizeWrapper(full_path.c_str(), NULL)) {	
+		if (DWORD buflen=GetFileVersionInfoSizeWrapper(full_path.c_str(), NULL)) {
 			BYTE vibuf[buflen];
-			if (GetFileVersionInfoWrapper(full_path.c_str(), 0, buflen, (LPVOID)vibuf)) {	
+			if (GetFileVersionInfoWrapper(full_path.c_str(), 0, buflen, (LPVOID)vibuf)) {
 				UINT vqvlen;
 				VS_FIXEDFILEINFO *pffi;
 #ifdef X86_3X
@@ -600,7 +704,7 @@ void PrintFileOwner(HANDLE hFile)
 			DWORD account_len=0;
 			DWORD domain_len=0;
 			SID_NAME_USE sid_type;
-			//When LookupAccountSid fails because buffer are not large enough - returned buffer length includes NULL-terminator
+			//When LookupAccountSid fails because buffer is not large enough - returned buffer length includes NULL-terminator
 			if (fnLookupAccountSidA(NULL, pSidOwner, NULL, &account_len, NULL, &domain_len, &sid_type)==FALSE&&account_len&&domain_len) {
 				char account[account_len];
 				char domain[domain_len];

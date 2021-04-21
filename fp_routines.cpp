@@ -111,12 +111,12 @@ bool FPRoutines::UnredirectWow64FsPath(const char* fpath, std::string &real_fpat
 	//After that we get WoW64 directory (with GetSystemWow64Directory) and convert it to NT path the same way as original path
 	//Find out if original path has something to do with WoW64 redirection by checking if it is prefixed by WoW64 directory
 	//If not - just return original path because it is not actually redirected
-	//Now all is left is to convert original path in it's NT canonical form back to it's Win32 equivalent
+	//Now all what is left is to convert original path in it's NT canonical form back to it's Win32 equivalent
 	//In this case it is simple because we already know Win32 equivalent of it's device prefix which is WoW64 directory
 	//Just swap this prefix with it's Win32 equivalent and we are good to go
 	
 	//Some caveats
-	//Original path should be valid file path - file must exist and everything
+	//Original path should be a valid file path - file must exist and everything
 	//Algorithm can be mofified to also allow directory as original path - but it still must exist
 	//On any conversion error (i.e. error not related to original path not being redirected one) function returns empty string
 
@@ -274,7 +274,7 @@ bool FPRoutines::KernelToWin32Path(const wchar_t* krn_fpath, std::wstring &w32_f
 		CloseHandle(hFile);
 		return false;
 	}
-
+	
 	wchar_t* res_krn_path=((OBJECT_NAME_INFORMATION*)oni_buf)->Name.Buffer;
 	for (std::pair<std::wstring, wchar_t> &drive: DriveList) {
 		if (!wcsncmp(drive.first.c_str(), res_krn_path, drive.first.length())&&(drive.first.back()==L'\\'||res_krn_path[drive.first.length()]==L'\\')) {
@@ -287,11 +287,11 @@ bool FPRoutines::KernelToWin32Path(const wchar_t* krn_fpath, std::wstring &w32_f
 			return true;
 		}
 	}
-
+	
 	//In contrast with NtQueryObject, NtQueryInformationFile is pretty predictable
 	//To get needed buffer size just supply buffer that holds FILE_NAME_INFORMATION structure and wait for STATUS_BUFFER_OVERFLOW (in this case it's just a status, don't worry)
 	//Needed buffer size (minus sizeof(FILE_NAME_INFORMATION)) will be in FILE_NAME_INFORMATION.FileNameLength
-	//But we are already know sufficient buffer size from the call to NtQueryObject - no need to second guess here
+	//But we already know sufficient buffer size from the call to NtQueryObject - no need to second guess here
 	//NtQueryInformationFile(FileNameInformation) returns path relative to device
 	//Returned path is not NULL-terminated (FileNameLength is string length in bytes)
 	buf_len=((OBJECT_NAME_INFORMATION*)oni_buf)->Name.Length+sizeof(FILE_NAME_INFORMATION);
@@ -372,7 +372,7 @@ bool FPRoutines::GetSFP_LoadLibrary(const char* fname, std::string &fpath)
 			//But it's not always the case so it's better to convert anyway
 			return UnredirectWow64FsPath(full_path, fpath);
 	//Next we load library and get path to it
-	//By using LOAD_LIBRARY_AS_DATAFILE flag we load library as resource (DLLMain not executed and no functions are exported)
+	//By using LOAD_LIBRARY_AS_DATAFILE flag we load library as a resource (DLLMain not executed and no functions are exported)
 	} else if ((hMod=LoadLibraryEx(fname, NULL, LOAD_LIBRARY_AS_DATAFILE))) {
 		bool res=GetMappedFileNameWrapper(hMod, fpath);
 		FreeLibrary(hMod);
@@ -385,7 +385,7 @@ bool FPRoutines::GetSFP_LoadLibrary(const char* fname, std::string &fpath)
 bool FPRoutines::SearchPathWrapper(const char* fname, const char* spath, const char* ext, std::string &fpath)
 {
 	//SearchPath uses the following algorithm
-	//First it checks if supplied filename is relative path (completely relative - to both current drive and directory)
+	//First it checks if supplied filename is a relative path (completely relative - to both current drive and directory)
 	//If it's not relative - it applies GetFullPathName to filename and returns resulting path (whatever it might be)
 	//If it's relative, real search commences
 	//It searches supplied search path or, in case it is missing, searches these paths:
